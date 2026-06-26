@@ -12,7 +12,7 @@ const VOLUNTEER_APPS_KEY = "project_delhi_volunteer_apps";
 const CURRENT_USER_KEY = "project_delhi_current_user";
 const REGISTERED_EMAILS_KEY = "project_delhi_registered_emails";
 
-const API_BASE_URL = "http://localhost:5001/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
 // Local cache
 let cachedTasks: TaskRequest[] = [];
