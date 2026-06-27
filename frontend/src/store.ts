@@ -4,6 +4,8 @@ import {
   VolunteerApp,
   CurrentUser,
   Role,
+  GeneralPartner,
+  ChatMessage,
 } from "./types";
 import type { TaskStatus, ApplicationStatus } from "./types";
 
@@ -61,6 +63,10 @@ export function getApprovedTasks(): TaskRequest[] {
   return cachedTasks.filter((t) => t.status === "approved");
 }
 
+export function getFeaturedTasks(): TaskRequest[] {
+  return cachedTasks.filter((t) => t.status === "approved" && t.isFeatured);
+}
+
 export function getPendingTasks(): TaskRequest[] {
   return cachedTasks.filter((t) => t.status === "pending");
 }
@@ -69,9 +75,25 @@ export function getTaskById(id: string): TaskRequest | undefined {
   return cachedTasks.find((t) => t.id === id);
 }
 
-export function addTask(
+export function slugify(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^\w\-]+/g, "")
+    .replace(/\-\-+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "");
+}
+
+export function getTaskBySlug(slug: string): TaskRequest | undefined {
+  return cachedTasks.find((t) => slugify(t.title) === slug);
+}
+
+export async function addTask(
   task: Omit<TaskRequest, "id" | "status" | "createdAt" | "volunteers">,
-): TaskRequest {
+): Promise<TaskRequest> {
   const newTask: TaskRequest = {
     ...task,
     id: "task-" + Date.now() + "-" + Math.random().toString(36).substr(2, 6),
@@ -79,29 +101,56 @@ export function addTask(
     createdAt: new Date().toISOString(),
     volunteers: [],
   };
-  cachedTasks.push(newTask);
 
-  // Sync with backend in background
-  fetch(`${API_BASE_URL}/tasks`, {
+  const res = await fetch(`${API_BASE_URL}/tasks`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(newTask),
-  }).catch((err) => console.error("Failed to sync new task to backend", err));
-
-  return newTask;
+  });
+  if (!res.ok) {
+    const errData = await res.json();
+    throw new Error(errData.error || "Failed to save proposal to server");
+  }
+  const savedTask = await res.json();
+  cachedTasks.push(savedTask);
+  return savedTask;
 }
 
-export function updateTaskStatus(id: string, status: TaskStatus): void {
+export function updateTaskStatus(id: string, status: TaskStatus, rejectionReason?: string): void {
   const idx = cachedTasks.findIndex((t) => t.id === id);
   if (idx !== -1) {
     cachedTasks[idx].status = status;
+    if (rejectionReason) {
+      cachedTasks[idx].rejectionReason = rejectionReason;
+    }
 
     // Sync with backend in background
     fetch(`${API_BASE_URL}/tasks/${id}/status`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, rejectionReason }),
     }).catch((err) => console.error("Failed to sync task status to backend", err));
+  }
+}
+
+export function updateTaskFeatured(id: string, isFeatured: boolean): void {
+  const idx = cachedTasks.findIndex((t) => t.id === id);
+  if (idx !== -1) {
+    if (isFeatured) {
+      // Clear featured status from all other cached tasks
+      cachedTasks.forEach((t) => {
+        t.isFeatured = false;
+      });
+    }
+
+    cachedTasks[idx].isFeatured = isFeatured;
+
+    // Sync with backend in background
+    fetch(`${API_BASE_URL}/tasks/${id}/featured`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isFeatured }),
+    }).catch((err) => console.error("Failed to sync task featured status to backend", err));
   }
 }
 
@@ -134,6 +183,125 @@ export async function respondToTaskRequest(id: string, userResponse: string): Pr
     if (!res.ok) {
       throw new Error("Failed to submit response to server");
     }
+  }
+}
+
+export async function submitUserQuery(
+  id: string,
+  userQueryAction: "edit" | "delete",
+  userQueryReason: string,
+): Promise<void> {
+  const idx = cachedTasks.findIndex((t) => t.id === id);
+  if (idx !== -1) {
+    cachedTasks[idx].userQueryAction = userQueryAction;
+    cachedTasks[idx].userQueryReason = userQueryReason;
+    cachedTasks[idx].userQueryStatus = "pending";
+  }
+
+  const res = await fetch(`${API_BASE_URL}/tasks/${id}/query`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userQueryAction, userQueryReason }),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to submit query to server");
+  }
+}
+
+export async function editProposal(
+  id: string,
+  updatedFields: Partial<TaskRequest>,
+): Promise<void> {
+  const idx = cachedTasks.findIndex((t) => t.id === id);
+  if (idx !== -1) {
+    cachedTasks[idx] = {
+      ...cachedTasks[idx],
+      ...updatedFields,
+      allowUserEdit: false,
+      userQueryStatus: "resolved",
+    };
+  }
+
+  const res = await fetch(`${API_BASE_URL}/tasks/${id}/edit-proposal`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updatedFields),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to save changes to server");
+  }
+}
+
+export async function adminEditProposal(
+  id: string,
+  updatedFields: Partial<TaskRequest>
+): Promise<void> {
+  const idx = cachedTasks.findIndex((t) => t.id === id);
+  if (idx !== -1) {
+    cachedTasks[idx] = {
+      ...cachedTasks[idx],
+      ...updatedFields,
+    };
+  }
+
+  const res = await fetch(`${API_BASE_URL}/tasks/${id}/admin-edit`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updatedFields),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to save changes to server");
+  }
+}
+
+export async function deleteProposal(
+  id: string,
+  deletedBy?: string,
+  deletionReason?: string,
+): Promise<void> {
+  const idx = cachedTasks.findIndex((t) => t.id === id);
+  if (idx !== -1) {
+    cachedTasks.splice(idx, 1);
+  }
+
+  const res = await fetch(`${API_BASE_URL}/tasks/${id}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ deletedBy, deletionReason }),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to delete proposal on server");
+  }
+}
+
+export async function allowUserEditProposal(id: string): Promise<void> {
+  const idx = cachedTasks.findIndex((t) => t.id === id);
+  if (idx !== -1) {
+    cachedTasks[idx].allowUserEdit = true;
+    cachedTasks[idx].userQueryStatus = "resolved";
+  }
+
+  const res = await fetch(`${API_BASE_URL}/tasks/${id}/allow-edit`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    throw new Error("Failed to grant edit permission");
+  }
+}
+
+export async function resolveUserQuery(id: string): Promise<void> {
+  const idx = cachedTasks.findIndex((t) => t.id === id);
+  if (idx !== -1) {
+    cachedTasks[idx].userQueryStatus = "resolved";
+  }
+
+  const res = await fetch(`${API_BASE_URL}/tasks/${id}/resolve-query`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    throw new Error("Failed to resolve user query");
   }
 }
 
@@ -197,11 +365,15 @@ export function addVolunteerApp(
 export function updateVolunteerAppStatus(
   id: string,
   status: ApplicationStatus,
+  rejectionReason?: string,
 ): void {
   const idx = cachedApps.findIndex((a) => a.id === id);
   if (idx !== -1) {
     const app = cachedApps[idx];
     app.status = status;
+    if (rejectionReason) {
+      app.rejectionReason = rejectionReason;
+    }
 
     if (status === "approved") {
       const taskIdx = cachedTasks.findIndex((t) => t.id === app.taskId);
@@ -224,8 +396,34 @@ export function updateVolunteerAppStatus(
     fetch(`${API_BASE_URL}/volunteer-apps/${id}/status`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, rejectionReason }),
     }).catch((err) => console.error("Failed to sync volunteer app status to backend", err));
+  }
+}
+
+export async function withdrawVolunteerApp(id: string, reason?: string): Promise<void> {
+  const idx = cachedApps.findIndex((a) => a.id === id);
+  if (idx !== -1) {
+    const app = cachedApps[idx];
+    cachedApps.splice(idx, 1);
+    
+    // Also remove from task.volunteers if it was approved
+    if (app.status === "approved") {
+      const taskIdx = cachedTasks.findIndex((t) => t.id === app.taskId);
+      if (taskIdx !== -1) {
+        const task = cachedTasks[taskIdx];
+        task.volunteers = task.volunteers.filter((v) => v.email !== app.email);
+      }
+    }
+  }
+
+  const res = await fetch(`${API_BASE_URL}/volunteer-apps/${id}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to cancel volunteering slot on server");
   }
 }
 
@@ -344,6 +542,68 @@ export async function registerWithEmailPassword(name: string, email: string, pas
 
 export function userLogout(): void {
   localStorage.removeItem(CURRENT_USER_KEY);
+}
+
+export async function forgotPassword(email: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.toLowerCase().trim() }),
+    });
+
+    let data;
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      data = await response.json();
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.error || `Server error (${response.status}). Please verify the backend is running.`);
+    }
+
+    if (!data) {
+      throw new Error("Invalid response format received from server.");
+    }
+
+    return { success: true, message: data.message || "Password reset instructions sent." };
+  } catch (error: any) {
+    console.error("Forgot password failed:", error);
+    throw new Error(error.message || "Connection error. Please try again.");
+  }
+}
+
+export async function resetPassword(email: string, token: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email.toLowerCase().trim(),
+        token,
+        password: newPassword,
+      }),
+    });
+
+    let data;
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      data = await response.json();
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.error || `Server error (${response.status}). Please verify the backend is running.`);
+    }
+
+    if (!data) {
+      throw new Error("Invalid response format received from server.");
+    }
+
+    return { success: true, message: data.message || "Password reset successfully." };
+  } catch (error: any) {
+    console.error("Reset password failed:", error);
+    throw new Error(error.message || "Connection error. Please try again.");
+  }
 }
 
 export function getVerifiedTasks(): TaskRequest[] {
@@ -510,5 +770,117 @@ export async function updateDonationStatus(
   } catch (error: any) {
     console.error("Donation status update failed:", error);
     return { success: false, message: error.message || "Connection error." };
+  }
+}
+
+export async function registerGeneralPartner(
+  data: Omit<GeneralPartner, "createdAt">,
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/general-partners`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      return { success: false, message: err.error || "Failed to register organization." };
+    }
+    return await response.json();
+  } catch (error: any) {
+    console.error("General partner registration failed:", error);
+    return { success: false, message: error.message || "Connection error." };
+  }
+}
+
+export async function getGeneralPartners(): Promise<GeneralPartner[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/general-partners`);
+    if (!response.ok) {
+      throw new Error("Failed to fetch general partners.");
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to fetch general partners:", error);
+    return [];
+  }
+}
+
+export async function updatePartnerStatus(
+  id: string,
+  status: 'approved' | 'rejected' | 'interviewing'
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/general-partners/${id}/status`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      return { success: false, message: err.error || "Failed to update partnership status." };
+    }
+    return await response.json();
+  } catch (error: any) {
+    console.error("Partner status update failed:", error);
+    return { success: false, message: error.message || "Connection error." };
+  }
+}
+
+export async function sendTaskChatMessage(
+  taskId: string,
+  sender: "moderator" | "user",
+  senderName: string,
+  text: string
+): Promise<ChatMessage[]> {
+  const taskIdx = cachedTasks.findIndex((t) => t.id === taskId);
+  const tempMsg: ChatMessage = {
+    id: "temp-" + Date.now(),
+    sender,
+    senderName,
+    text,
+    timestamp: new Date().toISOString()
+  };
+
+  // Optimistic update
+  if (taskIdx !== -1) {
+    const task = cachedTasks[taskIdx];
+    if (!task.chatMessages) {
+      task.chatMessages = [];
+    }
+    task.chatMessages.push(tempMsg);
+    if (sender === "moderator") {
+      task.userQueryStatus = "pending";
+    }
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sender, senderName, text })
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to send message to server");
+    }
+
+    const data = await response.json();
+    
+    // Replace cache with official list returned from server
+    if (taskIdx !== -1) {
+      cachedTasks[taskIdx].chatMessages = data.chatMessages;
+      if (data.task) {
+        cachedTasks[taskIdx].userQueryStatus = data.task.userQueryStatus;
+      }
+    }
+    return data.chatMessages;
+  } catch (error) {
+    console.error("Chat sync failed, falling back to local cache", error);
+    // Remove temp message on error to avoid ghost state
+    if (taskIdx !== -1) {
+      cachedTasks[taskIdx].chatMessages = cachedTasks[taskIdx].chatMessages?.filter((m) => m.id !== tempMsg.id) || [];
+    }
+    throw error;
   }
 }

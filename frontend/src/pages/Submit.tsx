@@ -59,6 +59,7 @@ export default function Submit({ addToast }: Props) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
 
   const fetchSuggestionsRef = useRef(
     debounce(async (query: string) => {
@@ -285,17 +286,38 @@ export default function Submit({ addToast }: Props) {
           </div>
 
           <div className="form-group">
-            <label htmlFor="category">
+            <label style={{ display: "block", marginBottom: "8px" }}>
               Category <span className="required">*</span>
             </label>
-            <select name="category" id="category" required>
-              <option value="">Select a category</option>
-              {categories.map(([key, meta]) => (
-                <option key={key} value={key}>
-                  {meta.emoji} {meta.label}
-                </option>
-              ))}
-            </select>
+            <input type="hidden" name="category" value={selectedCategory} required />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+              {categories.map(([key, meta]) => {
+                const isSelected = selectedCategory === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSelectedCategory(key)}
+                    className="filter-chip"
+                    style={{
+                      padding: "8px 16px",
+                      borderRadius: "24px",
+                      cursor: "pointer",
+                      fontSize: "0.88rem",
+                      fontWeight: isSelected ? 700 : 500,
+                      transition: "all 0.2s ease",
+                      border: isSelected ? "1.5px solid var(--primary)" : "1.5px solid var(--border-light)",
+                      background: isSelected ? "var(--primary)" : "#ffffff",
+                      color: isSelected ? "#ffffff" : "var(--text-secondary)",
+                      boxShadow: isSelected ? "0 4px 12px rgba(140, 36, 36, 0.15)" : "none",
+                      transform: isSelected ? "scale(1.03)" : "scale(1)"
+                    }}
+                  >
+                    {meta.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="form-group">

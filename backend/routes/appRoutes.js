@@ -4,7 +4,10 @@ const VolunteerApp = require("../models/VolunteerApp");
 const Subscriber = require("../models/Subscriber");
 const GeneralVolunteer = require("../models/GeneralVolunteer");
 const Donation = require("../models/Donation");
+const GeneralPartner = require("../models/GeneralPartner");
 const mailer = require("../config/mailer");
+const { logActivity } = require("../utils/activityLogger");
+const { toTitleCase, toSentenceCase } = require("../utils/textFormatter");
 
 // Get all volunteer applications
 router.get("/volunteer-apps", async (req, res) => {
@@ -21,6 +24,9 @@ router.post("/volunteer-apps", async (req, res) => {
   try {
     const newApp = new VolunteerApp({
       ...req.body,
+      name: toTitleCase(req.body.name),
+      reason: toSentenceCase(req.body.reason),
+      prevExperience: toSentenceCase(req.body.prevExperience),
       id: "vapp-" + Date.now() + "-" + Math.random().toString(36).substr(2, 6),
       status: "applied",
       createdAt: new Date().toISOString()
@@ -37,6 +43,13 @@ router.post("/volunteer-apps", async (req, res) => {
       console.error("Failed to send volunteer application received email:", err)
     );
 
+    await logActivity({
+      userEmail: newApp.email,
+      userName: newApp.name,
+      action: "VOLUNTEER_REGISTERED",
+      details: `Registered to volunteer for event "${taskTitle}" (${newApp.taskId})`
+    });
+
     res.json(newApp);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -47,8 +60,14 @@ router.post("/volunteer-apps", async (req, res) => {
 router.put("/volunteer-apps/:id/status", async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
-    const appRecord = await VolunteerApp.findOneAndUpdate({ id }, { status }, { new: true });
+    const { status, rejectionReason } = req.body;
+    
+    const update = { status };
+    if (rejectionReason !== undefined) {
+      update.rejectionReason = rejectionReason;
+    }
+    
+    const appRecord = await VolunteerApp.findOneAndUpdate({ id }, update, { new: true });
     if (appRecord) {
       const Task = require("../models/Task");
       const task = await Task.findOne({ id: appRecord.taskId });
@@ -70,10 +89,17 @@ router.put("/volunteer-apps/:id/status", async (req, res) => {
 
       // Send approval or rejection email notification to the applicant
       if (status === "approved" || status === "rejected") {
-        mailer.sendVolunteerAppStatusUpdate(appRecord, taskTitle, status).catch((err) =>
+        mailer.sendVolunteerAppStatusUpdate(appRecord, taskTitle, status, rejectionReason).catch((err) =>
           console.error("Failed to send volunteer status update email:", err)
         );
       }
+
+      await logActivity({
+        userEmail: appRecord.email,
+        userName: appRecord.name,
+        action: "VOLUNTEER_STATUS_UPDATED",
+        details: `Volunteer application status for event "${taskTitle}" set to "${status}". Reason: "${rejectionReason || 'None'}"`
+      });
 
       res.json({ success: true, application: appRecord });
     } else {
@@ -115,6 +141,12 @@ router.post("/subscribe", async (req, res) => {
       console.error("Failed to send subscription welcome email:", err)
     );
 
+    await logActivity({
+      userEmail: cleanEmail,
+      action: "NEWSLETTER_SUBSCRIBED",
+      details: "User subscribed to newsletter updates"
+    });
+
     res.json({ success: true, message: "Thank you for subscribing!" });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -150,11 +182,11 @@ router.post("/general-volunteers", async (req, res) => {
     }
 
     const newVol = new GeneralVolunteer({
-      name: name.trim(),
+      name: toTitleCase(name),
       email: cleanEmail,
       phone: phone.trim(),
-      preferredRole: preferredRole.trim(),
-      location: location.trim(),
+      preferredRole: toTitleCase(preferredRole),
+      location: toTitleCase(location),
       createdAt: new Date().toISOString(),
     });
     await newVol.save();
@@ -163,6 +195,13 @@ router.post("/general-volunteers", async (req, res) => {
     mailer.sendGeneralVolunteerWelcome(newVol).catch((err) =>
       console.error("Failed to send general volunteer welcome email:", err)
     );
+
+    await logActivity({
+      userName: newVol.name,
+      userEmail: newVol.email,
+      action: "GENERAL_VOLUNTEER_ADDED",
+      details: `Registered to general volunteer pool with role "${newVol.preferredRole}"`
+    });
 
     res.json({ success: true, message: "Thank you for registering! We will reach out to you soon." });
   } catch (error) {
@@ -223,6 +262,13 @@ router.post("/donations/report", async (req, res) => {
       transactionId.trim()
     ).catch(err => console.error("Error sending donation report acknowledgement:", err));
 
+    await logActivity({
+      userName: newDonation.name,
+      userEmail: newDonation.email,
+      action: "DONATION_REPORTED",
+      details: `Reported donation of INR ${newDonation.amount} via ${newDonation.method} (TxID: ${newDonation.transactionId})`
+    });
+
     res.json({ success: true, donation: newDonation, message: "Donation reported successfully! We will verify it and send your receipt soon." });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -267,7 +313,143 @@ router.put("/donations/:id/status", async (req, res) => {
     }
 
     await donation.save();
+
+    await logActivity({
+      userEmail: donation.email,
+      userName: donation.name,
+      action: "DONATION_STATUS_UPDATED",
+      details: `Donation report status updated to "${status}" for TxID ${donation.transactionId}`
+    });
+
     res.json({ success: true, donation });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Register as a general partner organization
+router.post("/general-partners", async (req, res) => {
+  try {
+    const { orgName, orgType, contactName, designation, email, phone, collabReason, location, taskId, taskTitle } = req.body;
+    if (!orgName || !orgType || !contactName || !designation || !email || !phone || !collabReason || !location) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      return res.status(400).json({ error: "Please enter a valid email address" });
+    }
+
+    const newPartner = new GeneralPartner({
+      id: "part-" + Date.now() + "-" + Math.random().toString(36).substr(2, 6),
+      taskId,
+      taskTitle,
+      orgName: toTitleCase(orgName),
+      orgType: orgType.trim(),
+      contactName: toTitleCase(contactName),
+      designation: toTitleCase(designation),
+      email: cleanEmail,
+      phone: phone.trim(),
+      collabReason: toSentenceCase(collabReason),
+      location: toTitleCase(location),
+      status: "applied",
+      createdAt: new Date().toISOString()
+    });
+
+    await newPartner.save();
+
+    // Trigger welcome/acknowledgement email to the registered partner organization
+    mailer.sendGeneralPartnerWelcome(newPartner).catch((err) =>
+      console.error("Failed to send general partner welcome email:", err)
+    );
+
+    await logActivity({
+      userName: newPartner.contactName,
+      userEmail: newPartner.email,
+      action: "GENERAL_PARTNER_ADDED",
+      details: `Registered organization "${newPartner.orgName}" (${newPartner.orgType}) for partnership${newPartner.taskTitle ? ` on event "${newPartner.taskTitle}"` : ""}`
+    });
+
+    res.json({ success: true, message: "Thank you for registering your organization! We will contact you for partnership opportunities soon." });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all general partner organizations
+router.get("/general-partners", async (req, res) => {
+  try {
+    const partners = await GeneralPartner.find({}).sort({ createdAt: -1 });
+    res.json(partners);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update partner application status
+router.put("/general-partners/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (status !== "approved" && status !== "rejected" && status !== "interviewing") {
+      return res.status(400).json({ error: "Invalid status value" });
+    }
+
+    const partnerRecord = await GeneralPartner.findOneAndUpdate({ id }, { status }, { new: true });
+    if (partnerRecord) {
+      await logActivity({
+        userName: partnerRecord.contactName,
+        userEmail: partnerRecord.email,
+        action: "PARTNER_STATUS_UPDATED",
+        details: `Partner application status for "${partnerRecord.orgName}" updated to "${status}"`
+      });
+
+      res.json({ success: true, partner: partnerRecord });
+    } else {
+      res.status(404).json({ error: "Partnership application not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Withdraw/Cancel volunteer application
+router.delete("/volunteer-apps/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body || {};
+    const appRecord = await VolunteerApp.findOne({ id });
+    if (!appRecord) {
+      return res.status(404).json({ error: "Volunteer application not found" });
+    }
+
+    const Task = require("../models/Task");
+    const task = await Task.findOne({ id: appRecord.taskId });
+    const taskTitle = task ? task.title : "Community Initiative";
+
+    // If the application was approved, remove the user from Task.volunteers array
+    if (task && appRecord.status === "approved") {
+      task.volunteers = task.volunteers.filter((v) => v.email !== appRecord.email);
+      await task.save();
+    }
+
+    // Delete the application record
+    await VolunteerApp.deleteOne({ id });
+
+    // Send withdrawal email notification to volunteer
+    mailer.sendVolunteerWithdrawNotice(appRecord.email, appRecord.name, taskTitle, reason).catch((err) =>
+      console.error("Failed to send volunteer withdraw email:", err)
+    );
+
+    await logActivity({
+      userEmail: appRecord.email,
+      userName: appRecord.name,
+      action: "VOLUNTEER_WITHDRAWN",
+      details: `Withdrew/Cancelled volunteering slot for event "${taskTitle}" (Reason: ${reason || "None"})`
+    });
+
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

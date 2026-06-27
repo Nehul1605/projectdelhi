@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useNavigate, Link, useSearchParams } from "react-router-dom";
-import { Mail, Lock, User, ArrowRight } from "lucide-react";
+import { useNavigate, Link, useSearchParams, useLocation } from "react-router-dom";
+import { Mail, Lock, User, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { registerWithEmailPassword } from "../store";
 import { LogoFull } from "../components/Logo";
 
@@ -10,12 +10,15 @@ interface Props {
 
 export default function Signup({ addToast }: Props) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
-  const redirectTo = searchParams.get("redirectTo");
+  const state = location.state as { from?: string } | null;
+  const redirectTo = state?.from || searchParams.get("redirectTo") || null;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +51,7 @@ export default function Signup({ addToast }: Props) {
       }}
     >
       <div
+        className="auth-container"
         style={{
           display: "flex",
           maxWidth: "1040px",
@@ -141,6 +145,7 @@ export default function Signup({ addToast }: Props) {
 
         {/* Right Side - Form */}
         <div
+          className="auth-form-side"
           style={{
             flex: "1",
             display: "flex",
@@ -277,7 +282,7 @@ export default function Signup({ addToast }: Props) {
                     }}
                   />
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     id="password"
                     placeholder="••••••••"
                     value={password}
@@ -285,12 +290,34 @@ export default function Signup({ addToast }: Props) {
                     required
                     style={{
                       paddingLeft: 44,
+                      paddingRight: 44,
                       height: 48,
                       borderRadius: 12,
                       background: "var(--bg)",
                       border: "1.5px solid var(--border)",
+                      width: "100%",
                     }}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: "absolute",
+                      right: "14px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "var(--text-muted)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 0,
+                    }}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
               </div>
 

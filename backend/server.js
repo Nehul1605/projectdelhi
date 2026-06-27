@@ -15,6 +15,9 @@ const VolunteerApp = require("./models/VolunteerApp");
 const Subscriber = require("./models/Subscriber");
 const GeneralVolunteer = require("./models/GeneralVolunteer");
 const Donation = require("./models/Donation");
+const GeneralPartner = require("./models/GeneralPartner");
+const Activity = require("./models/Activity");
+const DeletedTask = require("./models/DeletedTask");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -66,7 +69,10 @@ app.post("/api/reset", async (req, res) => {
     await VolunteerApp.deleteMany({});
     await Subscriber.deleteMany({});
     await GeneralVolunteer.deleteMany({});
+    await GeneralPartner.deleteMany({});
     await Donation.deleteMany({});
+    await Activity.deleteMany({});
+    await DeletedTask.deleteMany({});
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });

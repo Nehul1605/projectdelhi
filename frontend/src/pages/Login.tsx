@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { useNavigate, Link, useSearchParams } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
-import { loginWithEmailPassword, loginWithGoogle } from "../store";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, Link, useSearchParams, useLocation } from "react-router-dom";
+import { ArrowRight, Lock, Eye, EyeOff, X } from "lucide-react";
+import { loginWithEmailPassword, loginWithGoogle, forgotPassword } from "../store";
 import { LogoFull } from "../components/Logo";
 import { GoogleLogin } from "@react-oauth/google";
 
@@ -12,11 +12,48 @@ interface Props {
 
 export default function Login({ addToast }: Props) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
-  const redirectTo = searchParams.get("redirectTo");
+  const state = location.state as { from?: string } | null;
+  const redirectTo = state?.from || searchParams.get("redirectTo") || null;
+  const messageShownRef = useRef(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [googleBtnWidth, setGoogleBtnWidth] = useState(380);
+
+  useEffect(() => {
+    const updateWidth = () => {
+      const container = document.querySelector(".google-btn-container");
+      if (container) {
+        const width = Math.max(200, Math.min(380, container.clientWidth));
+        setGoogleBtnWidth(width);
+      } else {
+        setGoogleBtnWidth(window.innerWidth < 480 ? 280 : 380);
+      }
+    };
+    updateWidth();
+    const timer = setTimeout(updateWidth, 100);
+    window.addEventListener("resize", updateWidth);
+    return () => {
+      window.removeEventListener("resize", updateWidth);
+      clearTimeout(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    const loginState = location.state as { from?: string; message?: string } | null;
+    if (loginState?.message && !messageShownRef.current) {
+      messageShownRef.current = true;
+      addToast(loginState.message, "info");
+      // Clean up the location state so the toast doesn't trigger again on component updates
+      navigate(location.pathname, { replace: true, state: { from: loginState.from } });
+    }
+  }, [location.state, addToast, navigate, location.pathname]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +70,7 @@ export default function Login({ addToast }: Props) {
       } else if (user.role === "MODERATOR") {
         navigate("/volunteer-dashboard");
       } else {
-        navigate("/browse");
+        navigate("/dashboard");
       }
     } catch (err: any) {
       addToast(err.message || "Failed to log in", "error");
@@ -54,6 +91,7 @@ export default function Login({ addToast }: Props) {
       }}
     >
       <div
+        className="auth-container"
         style={{
           display: "flex",
           maxWidth: "1040px",
@@ -147,6 +185,7 @@ export default function Login({ addToast }: Props) {
 
         {/* Right Side - Form */}
         <div
+          className="auth-form-side"
           style={{
             flex: "1",
             display: "flex",
@@ -217,25 +256,61 @@ export default function Login({ addToast }: Props) {
                 >
                   Password
                 </label>
-                <input
-                  type="password"
-                  id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  placeholder="••••••••"
-                  style={{
-                    height: "48px",
-                    borderRadius: "10px",
-                    fontSize: "0.95rem",
-                  }}
-                />
+                <div style={{ position: "relative" }}>
+                  <Lock
+                    size={18}
+                    style={{
+                      position: "absolute",
+                      left: 14,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      color: "var(--text-muted)",
+                    }}
+                  />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    placeholder="••••••••"
+                    style={{
+                      paddingLeft: "44px",
+                      paddingRight: "44px",
+                      height: "48px",
+                      borderRadius: "10px",
+                      fontSize: "0.95rem",
+                      width: "100%",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: "absolute",
+                      right: "14px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "var(--text-muted)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 0,
+                    }}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
 
               <div
                 style={{ textAlign: "right", marginTop: 12, marginBottom: 28 }}
               >
                 <span
+                  onClick={() => setShowForgotModal(true)}
                   style={{
                     color: "var(--primary)",
                     fontSize: "0.85rem",
@@ -292,7 +367,7 @@ export default function Login({ addToast }: Props) {
                       } else if (user.role === "MODERATOR") {
                         navigate("/volunteer-dashboard");
                       } else {
-                        navigate("/browse");
+                        navigate("/dashboard");
                       }
                     } catch (err: any) {
                       addToast(err.message || "Failed to log in with Google", "error");
@@ -307,7 +382,7 @@ export default function Login({ addToast }: Props) {
                 theme="filled_blue"
                 shape="pill"
                 size="large"
-                width="380"
+                width={String(googleBtnWidth)}
               />
             </div>
 
@@ -338,6 +413,145 @@ export default function Login({ addToast }: Props) {
           </div>
         </div>
       </div>
+
+      {showForgotModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(45, 32, 24, 0.4)",
+            backdropFilter: "blur(8px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "20px",
+          }}
+        >
+          <div
+            style={{
+              background: "var(--bg-card)",
+              borderRadius: "24px",
+              padding: "40px",
+              maxWidth: "480px",
+              width: "100%",
+              boxShadow: "var(--shadow-lg)",
+              border: "1px solid var(--border-light)",
+              position: "relative",
+            }}
+          >
+            <button
+              onClick={() => {
+                setShowForgotModal(false);
+                setForgotEmail("");
+              }}
+              style={{
+                position: "absolute",
+                top: "20px",
+                right: "20px",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--text-muted)",
+                padding: "4px",
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            <div style={{ textAlign: "center", marginBottom: "28px" }}>
+              <h3
+                style={{
+                  fontSize: "1.5rem",
+                  fontWeight: 800,
+                  color: "var(--text)",
+                  marginBottom: "8px",
+                }}
+              >
+                Reset Password
+              </h3>
+              <p
+                style={{
+                  color: "var(--text-secondary)",
+                  fontSize: "0.9rem",
+                  lineHeight: 1.5,
+                }}
+              >
+                Enter your registered email address and we'll send you
+                instructions to reset your password.
+              </p>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!forgotEmail) return;
+                setForgotLoading(true);
+                try {
+                  const res = await forgotPassword(forgotEmail);
+                  addToast(res.message, "success");
+                  setShowForgotModal(false);
+                  setForgotEmail("");
+                } catch (err: any) {
+                  addToast(err.message || "Failed to initiate password reset", "error");
+                } finally {
+                  setForgotLoading(false);
+                }
+              }}
+            >
+              <div className="form-group">
+                <label
+                  htmlFor="forgot-email"
+                  style={{
+                    fontSize: "0.85rem",
+                    fontWeight: 700,
+                    marginBottom: 8,
+                    display: "block",
+                    color: "var(--text-secondary)",
+                  }}
+                >
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="forgot-email"
+                  placeholder="you@example.com"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  required
+                  style={{
+                    height: 48,
+                    borderRadius: 12,
+                    background: "var(--bg)",
+                    border: "1.5px solid var(--border)",
+                    width: "100%",
+                    padding: "0 16px",
+                  }}
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={forgotLoading}
+                style={{
+                  width: "100%",
+                  height: 52,
+                  borderRadius: 12,
+                  marginTop: "24px",
+                  justifyContent: "center",
+                  fontSize: "1rem",
+                }}
+              >
+                {forgotLoading ? "Sending Instructions..." : "Send Reset Link"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .login-video-side { display: flex; }

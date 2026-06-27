@@ -6,8 +6,16 @@ import {
   updateVolunteerAppStatus,
   requestTaskDetails,
   getTasks,
+  getGeneralPartners,
+  updatePartnerStatus,
+  allowUserEditProposal,
+  resolveUserQuery,
+  deleteProposal,
+  adminEditProposal,
+  sendTaskChatMessage,
 } from "../store";
-import { TaskRequest, VolunteerApp, ApplicationStatus } from "../types";
+import { TaskRequest, VolunteerApp, ApplicationStatus, GeneralPartner, CATEGORY_META, ChatMessage } from "../types";
+import { X } from "lucide-react";
 
 interface VolunteerDashboardProps {
   addToast: (msg: string, type: "success" | "error" | "info") => void;
@@ -16,11 +24,13 @@ interface VolunteerDashboardProps {
 export default function VolunteerDashboard({
   addToast,
 }: VolunteerDashboardProps) {
-  const [activeTab, setActiveTab] = useState<"proposals" | "applications">(
+  const [activeTab, setActiveTab] = useState<"proposals" | "applications" | "partners" | "queries">(
     "proposals",
   );
   const [proposals, setProposals] = useState<TaskRequest[]>([]);
   const [applications, setApplications] = useState<VolunteerApp[]>([]);
+  const [partners, setPartners] = useState<GeneralPartner[]>([]);
+  const [revisionRequests, setRevisionRequests] = useState<TaskRequest[]>([]);
   const [appStatusFilter, setAppStatusFilter] = useState<
     ApplicationStatus | "all"
   >("all");
@@ -32,10 +42,117 @@ export default function VolunteerDashboard({
   const loadData = () => {
     setProposals(getPendingTasks());
     setApplications(getVolunteerApps());
+    getGeneralPartners().then(setPartners);
+
+    const allTasks = getTasks();
+    const queries = allTasks.filter((t) => t.userQueryStatus === "pending");
+    setRevisionRequests(queries);
   };
 
   const [requestTexts, setRequestTexts] = useState<Record<string, string>>({});
   const [sendingRequestId, setSendingRequestId] = useState<string | null>(null);
+
+  // Delete prompt state
+  const [isDeletePromptOpen, setIsDeletePromptOpen] = useState(false);
+  const [proposalIdToDelete, setProposalIdToDelete] = useState<string | null>(null);
+  const [deletionReason, setDeletionReason] = useState("");
+
+  // Rejection states
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectProposalId, setRejectProposalId] = useState<string | null>(null);
+  const [proposalRejectionReason, setProposalRejectionReason] = useState("");
+
+  const [isAppRejectModalOpen, setIsAppRejectModalOpen] = useState(false);
+  const [rejectAppId, setRejectAppId] = useState<string | null>(null);
+  const [appRejectionReason, setAppRejectionReason] = useState("");
+
+  // Staff Edit modal state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingProposal, setEditingProposal] = useState<TaskRequest | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editShortDescription, setEditShortDescription] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editEventDate, setEditEventDate] = useState("");
+  const [editEventTime, setEditEventTime] = useState("");
+  const [editEventDuration, setEditEventDuration] = useState(1);
+  const [editVolunteersNeeded, setEditVolunteersNeeded] = useState(5);
+  const [editAddress, setEditAddress] = useState("");
+  const [editLocality, setEditLocality] = useState("");
+  const [editPincode, setEditPincode] = useState("");
+  const [editCity, setEditCity] = useState("");
+
+  const handleStartEditProposal = (proposal: TaskRequest) => {
+    setEditingProposal(proposal);
+    setEditTitle(proposal.title);
+    setEditDescription(proposal.description);
+    setEditShortDescription(proposal.shortDescription || "");
+    setEditCategory(proposal.category);
+    setEditEventDate(proposal.eventDate);
+    setEditEventTime(proposal.eventTime || "");
+    setEditEventDuration(proposal.eventDuration || 1);
+    setEditVolunteersNeeded(proposal.volunteersNeeded);
+    setEditAddress(proposal.address);
+    setEditLocality(proposal.locality);
+    setEditPincode(proposal.pincode);
+    setEditCity(proposal.city);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEditProposal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProposal) return;
+
+    try {
+      await adminEditProposal(editingProposal.id, {
+        title: editTitle,
+        description: editDescription,
+        shortDescription: editShortDescription,
+        category: editCategory as any,
+        eventDate: editEventDate,
+        eventTime: editEventTime,
+        eventDuration: editEventDuration,
+        volunteersNeeded: editVolunteersNeeded,
+        address: editAddress,
+        locality: editLocality,
+        pincode: editPincode,
+        city: editCity,
+      });
+
+      addToast("Proposal details updated successfully.", "success");
+      setIsEditModalOpen(false);
+      setEditingProposal(null);
+      loadData();
+    } catch (error) {
+      addToast("Failed to update proposal details.", "error");
+    }
+  };
+
+  const getTaskMessages = (p: TaskRequest) => {
+    const messages: any[] = [];
+    if (p.moderatorRequest) {
+      messages.push({
+        id: "legacy-mod",
+        sender: "moderator",
+        senderName: "Moderator",
+        text: p.moderatorRequest,
+        timestamp: p.createdAt
+      });
+    }
+    if (p.userResponse) {
+      messages.push({
+        id: "legacy-user",
+        sender: "user",
+        senderName: p.applicantName,
+        text: p.userResponse,
+        timestamp: p.createdAt
+      });
+    }
+    if (p.chatMessages && p.chatMessages.length > 0) {
+      messages.push(...p.chatMessages);
+    }
+    return messages;
+  };
 
   const handleRequestMsgChange = (taskId: string, text: string) => {
     setRequestTexts((prev) => ({ ...prev, [taskId]: text }));
@@ -44,18 +161,18 @@ export default function VolunteerDashboard({
   const handleSendRequest = async (taskId: string) => {
     const text = requestTexts[taskId]?.trim();
     if (!text) {
-      addToast("Please enter a message to request details.", "info");
+      addToast("Please enter a message.", "info");
       return;
     }
 
     setSendingRequestId(taskId);
     try {
-      await requestTaskDetails(taskId, text);
-      addToast("Request sent to the user successfully!", "success");
+      await sendTaskChatMessage(taskId, "moderator", "Moderator", text);
+      addToast("Message sent to user.", "success");
       loadData();
       setRequestTexts((prev) => ({ ...prev, [taskId]: "" }));
     } catch (error) {
-      addToast("Failed to send request.", "error");
+      addToast("Failed to send message.", "error");
     } finally {
       setSendingRequestId(null);
     }
@@ -68,20 +185,86 @@ export default function VolunteerDashboard({
   };
 
   const handleRejectProposal = (id: string) => {
-    updateTaskStatus(id, "rejected");
+    setRejectProposalId(id);
+    setProposalRejectionReason("");
+    setIsRejectModalOpen(true);
+  };
+
+  const confirmRejectProposal = () => {
+    if (!rejectProposalId || !proposalRejectionReason.trim()) {
+      addToast("Please provide a rejection reason.", "info");
+      return;
+    }
+    updateTaskStatus(rejectProposalId, "rejected", proposalRejectionReason.trim());
     addToast("Proposal rejected.", "info");
+    setIsRejectModalOpen(false);
+    setRejectProposalId(null);
+    setProposalRejectionReason("");
     loadData();
   };
 
+  const handleAllowEdit = async (taskId: string) => {
+    try {
+      await allowUserEditProposal(taskId);
+      addToast("Granted edit permission to user.", "success");
+      loadData();
+    } catch (error) {
+      addToast("Failed to allow user to edit.", "error");
+    }
+  };
+
+  const handleResolveQuery = async (taskId: string) => {
+    try {
+      await resolveUserQuery(taskId);
+      addToast("Request marked as resolved.", "info");
+      loadData();
+    } catch (error) {
+      addToast("Failed to resolve request.", "error");
+    }
+  };
+
+  const handleDeleteProposal = (taskId: string) => {
+    setProposalIdToDelete(taskId);
+    setDeletionReason("Moderator deleted initiative");
+    setIsDeletePromptOpen(true);
+  };
+
+  const confirmDeleteProposal = async () => {
+    if (!proposalIdToDelete) return;
+    try {
+      await deleteProposal(proposalIdToDelete, "Moderator", deletionReason || "Deleted by moderator");
+      addToast("Proposal deleted and archived successfully.", "success");
+      setIsDeletePromptOpen(false);
+      setProposalIdToDelete(null);
+      setDeletionReason("");
+      loadData();
+    } catch (error) {
+      addToast("Failed to delete proposal.", "error");
+    }
+  };
+
   const handleApproveApp = (id: string) => {
-    updateVolunteerAppStatus(id, "interviewing");
-    addToast("Application sent to Admin for final review.", "info");
+    updateVolunteerAppStatus(id, "approved");
+    addToast("Application approved successfully.", "success");
     loadData();
   };
 
   const handleRejectApp = (id: string) => {
-    updateVolunteerAppStatus(id, "rejected");
+    setRejectAppId(id);
+    setAppRejectionReason("");
+    setIsAppRejectModalOpen(true);
+  };
+
+  const confirmRejectApp = () => {
+    if (!rejectAppId || !appRejectionReason.trim()) {
+      addToast("Please provide a rejection reason.", "info");
+      return;
+    }
+    updateVolunteerAppStatus(rejectAppId, "rejected", appRejectionReason.trim());
     addToast("Application rejected.", "error");
+    setIsAppRejectModalOpen(false);
+    setRejectAppId(null);
+    setAppRejectionReason("");
     loadData();
   };
 
@@ -139,6 +322,33 @@ export default function VolunteerDashboard({
   const verifiedAppsCount = getVolunteerApps().filter(
     (app) => app.status === "interviewing" || app.status === "approved"
   ).length;
+
+  const modalOverlayStyle: React.CSSProperties = {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: "rgba(45, 32, 24, 0.5)",
+    backdropFilter: "blur(4px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000,
+    padding: "20px"
+  };
+
+  const modalContentStyle: React.CSSProperties = {
+    background: "var(--bg-card)",
+    borderRadius: "var(--radius)",
+    width: "100%",
+    maxWidth: "600px",
+    maxHeight: "90vh",
+    overflowY: "auto",
+    padding: "32px",
+    boxShadow: "var(--shadow-lg)",
+    border: "1px solid var(--border-light)"
+  };
 
   return (
     <div className="page-container page-enter">
@@ -206,6 +416,18 @@ export default function VolunteerDashboard({
           >
             Volunteer Applications ({applications.length})
           </button>
+          <button
+            className={`filter-chip ${activeTab === "partners" ? "active" : ""}`}
+            onClick={() => setActiveTab("partners")}
+          >
+            Partnership Requests ({partners.length})
+          </button>
+          <button
+            className={`filter-chip ${activeTab === "queries" ? "active" : ""}`}
+            onClick={() => setActiveTab("queries")}
+          >
+            User Queries ({revisionRequests.length})
+          </button>
         </div>
 
         {activeTab === "proposals" && (
@@ -217,19 +439,32 @@ export default function VolunteerDashboard({
             ) : (
               proposals.map((proposal) => (
                 <div key={proposal.id} className="card">
-                  <h3 style={{ marginBottom: "10px" }}>{proposal.title}</h3>
+                  <h3 style={{ marginBottom: "6px" }}>{proposal.title}</h3>
                   <p
                     style={{
-                      fontSize: "0.9rem",
+                      fontSize: "0.85rem",
                       color: "var(--text-secondary)",
-                      marginBottom: "10px",
+                      marginBottom: "14px",
                     }}
                   >
                     By: {proposal.applicantName} ({proposal.email})
                   </p>
-                  <p style={{ fontSize: "0.9rem", marginBottom: "14px" }}>
-                    {proposal.description}
-                  </p>
+                  
+                  {proposal.shortDescription && (
+                    <div style={{ marginBottom: "12px", fontSize: "0.9rem" }}>
+                      <strong style={{ color: "var(--text-secondary)", fontSize: "0.82rem" }}>Short Description:</strong>
+                      <p style={{ margin: "2px 0 0 0", color: "var(--text-secondary)", fontStyle: "italic" }}>
+                        {proposal.shortDescription}
+                      </p>
+                    </div>
+                  )}
+
+                  <div style={{ marginBottom: "14px", fontSize: "0.9rem" }}>
+                    <strong style={{ color: "var(--text-secondary)", fontSize: "0.82rem" }}>Detailed Description:</strong>
+                    <p style={{ margin: "2px 0 0 0", color: "var(--text)", lineHeight: "1.5" }}>
+                      {proposal.description}
+                    </p>
+                  </div>
 
                   <div 
                     style={{ 
@@ -270,9 +505,9 @@ export default function VolunteerDashboard({
                       </div>
                     </div>
                     <div>
-                      <strong style={{ color: "var(--text-secondary)" }}>Event Date & Time:</strong>
+                      <strong style={{ color: "var(--text-secondary)" }}>Proposed Date & Time:</strong>
                       <div style={{ marginTop: "2px", fontWeight: 600 }}>
-                        {proposal.eventDate ? `${new Date(proposal.eventDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} at ${proposal.eventTime || 'Anytime'}` : "N/A"}
+                        {proposal.eventDate ? `${new Date(proposal.eventDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} at ${proposal.eventTime || 'To be Decided'}` : "N/A"}
                       </div>
                     </div>
                     <div>
@@ -289,57 +524,130 @@ export default function VolunteerDashboard({
                     </div>
                   </div>
 
-                  {/* Moderator Request Info Section */}
-                  <div style={{ marginTop: "16px", borderTop: "1px solid var(--border-light)", paddingTop: "16px", marginBottom: "16px" }}>
-                    {proposal.moderatorRequest && (
-                      <div style={{ background: "rgba(245, 158, 11, 0.03)", border: "1px solid rgba(245, 158, 11, 0.2)", borderRadius: "8px", padding: "12px", marginBottom: "12px" }}>
-                        <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--warning)" }}>Extra Info Requested:</span>
-                        <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-                          "{proposal.moderatorRequest}"
-                        </p>
-                      </div>
-                    )}
-
-                    {proposal.userResponse ? (
-                      <div style={{ background: "rgba(16, 185, 129, 0.03)", border: "1px solid rgba(16, 185, 129, 0.2)", borderRadius: "8px", padding: "12px", marginBottom: "12px" }}>
-                        <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--success)" }}>User Response:</span>
-                        <p style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "var(--text)" }}>
-                          "{proposal.userResponse}"
-                        </p>
-                      </div>
-                    ) : (
-                      <div style={{ display: "flex", gap: "8px", flexDirection: "column", alignItems: "flex-start" }}>
-                        <label htmlFor={`req-${proposal.id}`} style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--text-secondary)" }}>
-                          Request Additional Details:
-                        </label>
-                        <div style={{ display: "flex", gap: "8px", width: "100%" }}>
-                          <input
-                            type="text"
-                            id={`req-${proposal.id}`}
-                            placeholder="e.g. Please clarify exact location or parking details..."
-                            value={requestTexts[proposal.id] || ""}
-                            onChange={(e) => handleRequestMsgChange(proposal.id, e.target.value)}
-                            style={{ flex: 1, height: "36px", fontSize: "0.85rem", padding: "0 10px", borderRadius: "6px", border: "1px solid var(--border)" }}
-                          />
-                          <button
-                            onClick={() => handleSendRequest(proposal.id)}
-                            disabled={sendingRequestId === proposal.id}
-                            className="btn btn-primary btn-sm"
-                            style={{ height: "36px", whiteSpace: "nowrap" }}
-                          >
-                            {sendingRequestId === proposal.id ? "Sending..." : "Send Request"}
-                          </button>
+                  {/* Moderator Chat Discussion Section */}
+                  <div style={{ marginTop: "20px", borderTop: "1px solid var(--border-light)", paddingTop: "20px", marginBottom: "20px" }}>
+                    <h4 style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--text)", marginBottom: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
+                      💬 Discussion with Proposer
+                    </h4>
+                    
+                    {/* Chat Bubble Container */}
+                    <div 
+                      style={{ 
+                        maxHeight: "260px", 
+                        overflowY: "auto", 
+                        background: "rgba(0,0,0,0.01)", 
+                        border: "1px solid var(--border-light)", 
+                        borderRadius: "12px", 
+                        padding: "16px", 
+                        display: "flex", 
+                        flexDirection: "column", 
+                        gap: "12px",
+                        marginBottom: "12px"
+                      }}
+                    >
+                      {getTaskMessages(proposal).length === 0 ? (
+                        <div style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontSize: "0.85rem" }}>
+                          No messages yet. Send a message to request additional info or clarify proposal details.
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        getTaskMessages(proposal).map((msg: any) => {
+                          const isMod = msg.sender === "moderator";
+                          return (
+                            <div 
+                              key={msg.id} 
+                              style={{ 
+                                display: "flex", 
+                                flexDirection: "column", 
+                                alignSelf: isMod ? "flex-end" : "flex-start",
+                                maxWidth: "75%"
+                              }}
+                            >
+                              <div style={{ 
+                                fontSize: "0.75rem", 
+                                color: "var(--text-secondary)", 
+                                marginBottom: "3px", 
+                                alignSelf: isMod ? "flex-end" : "flex-start",
+                                fontWeight: 600
+                              }}>
+                                {msg.senderName}
+                              </div>
+                              <div 
+                                style={{ 
+                                  padding: "10px 14px", 
+                                  borderRadius: "14px", 
+                                  borderTopRightRadius: isMod ? "2px" : "14px",
+                                  borderTopLeftRadius: !isMod ? "2px" : "14px",
+                                  background: isMod ? "var(--primary)" : "white", 
+                                  color: isMod ? "white" : "var(--text)",
+                                  fontSize: "0.88rem",
+                                  lineHeight: "1.4",
+                                  border: isMod ? "none" : "1px solid var(--border)",
+                                  boxShadow: "0 1px 2px rgba(0,0,0,0.02)"
+                                }}
+                              >
+                                {msg.text}
+                              </div>
+                              <div style={{ 
+                                fontSize: "0.7rem", 
+                                color: "var(--text-muted)", 
+                                marginTop: "3px", 
+                                alignSelf: isMod ? "flex-end" : "flex-start" 
+                              }}>
+                                {new Date(msg.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Chat Input Bar */}
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <input
+                        type="text"
+                        placeholder="Type a message to discuss with the proposer..."
+                        value={requestTexts[proposal.id] || ""}
+                        onChange={(e) => handleRequestMsgChange(proposal.id, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleSendRequest(proposal.id);
+                          }
+                        }}
+                        style={{ 
+                          flex: 1, 
+                          height: "40px", 
+                          fontSize: "0.88rem", 
+                          padding: "0 14px", 
+                          borderRadius: "8px", 
+                          border: "1px solid var(--border)",
+                          outline: "none"
+                        }}
+                      />
+                      <button
+                        onClick={() => handleSendRequest(proposal.id)}
+                        disabled={sendingRequestId === proposal.id}
+                        className="btn btn-primary"
+                        style={{ height: "40px", padding: "0 16px", whiteSpace: "nowrap" }}
+                      >
+                        {sendingRequestId === proposal.id ? "Sending..." : "Send"}
+                      </button>
+                    </div>
                   </div>
 
-                  <div style={{ display: "flex", gap: "10px" }}>
+                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                     <button
                       className="btn btn-primary btn-sm"
                       onClick={() => handleVerifyProposal(proposal.id)}
                     >
                       Verify (Send to Admin)
+                    </button>
+                    <button
+                      className="btn btn-outline btn-sm"
+                      onClick={() => handleStartEditProposal(proposal)}
+                      style={{ color: "var(--primary)", borderColor: "var(--primary)" }}
+                    >
+                      ✏️ Edit Details
                     </button>
                     <button
                       className="btn btn-outline btn-sm"
@@ -475,7 +783,7 @@ export default function VolunteerDashboard({
                               className="btn btn-primary btn-sm"
                               onClick={() => handleApproveApp(app.id)}
                             >
-                              Send to Admin
+                              Approve
                             </button>
                             <button
                               className="btn btn-outline btn-sm"
@@ -507,6 +815,583 @@ export default function VolunteerDashboard({
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === "partners" && (
+          <div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
+              <h3 style={{ margin: 0 }}>Partnership Requests Pool</h3>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => {
+                  const headers = ["Org Name", "Org Type", "Contact Name", "Designation", "Email", "Phone", "Location", "Collab Reason", "Status", "Registered At"];
+                  const rows = partners.map((p) => [
+                    p.orgName,
+                    p.orgType,
+                    p.contactName,
+                    p.designation,
+                    p.email,
+                    p.phone,
+                    p.location,
+                    p.collabReason,
+                    p.status || "applied",
+                    new Date(p.createdAt || "").toLocaleString("en-IN")
+                  ]);
+                  const csv = [headers, ...rows]
+                    .map((row) => row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(","))
+                    .join("\n");
+                  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.download = "moderator-partnerships-list.csv";
+                  link.click();
+                  URL.revokeObjectURL(url);
+                }}
+                style={{ marginLeft: "auto" }}
+              >
+                Export CSV
+              </button>
+            </div>
+
+            {partners.length === 0 ? (
+              <p style={{ color: "var(--text-secondary)" }}>
+                No partnership requests found.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {partners.map((part) => (
+                  <div key={part.id} className="card" style={{ padding: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                      <div>
+                        <h3 style={{ marginBottom: 6 }}>
+                          {part.orgName} <span style={{
+                            padding: "2px 8px",
+                            borderRadius: "4px",
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            background: "var(--border-light)",
+                            color: "var(--text-secondary)",
+                            marginLeft: "8px"
+                          }}>{part.orgType}</span>
+                        </h3>
+                        {part.taskTitle && (
+                          <p style={{ margin: "4px 0", fontSize: "0.85rem", color: "var(--primary)", fontWeight: 600 }}>
+                            For Event: {part.taskTitle}
+                          </p>
+                        )}
+                        <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "0.9rem" }}>
+                          <strong>Contact:</strong> {part.contactName} ({part.designation}) · {part.email} · {part.phone}
+                        </p>
+                        <p style={{ margin: "4px 0 0 0", color: "var(--text-secondary)", fontSize: "0.9rem" }}>
+                          <strong>Location:</strong> {part.location}
+                        </p>
+                        <p style={{ marginTop: 8, fontSize: "0.9rem", color: "var(--text-secondary)" }}>
+                          <strong>Collab Proposal:</strong> {part.collabReason}
+                        </p>
+                      </div>
+
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "space-between", minWidth: "160px" }}>
+                        <span style={{
+                          padding: "4px 8px",
+                          borderRadius: "4px",
+                          fontSize: "0.8rem",
+                          fontWeight: 600,
+                          background: part.status === "approved" ? "rgba(16, 185, 129, 0.1)" : part.status === "rejected" ? "rgba(239, 68, 68, 0.1)" : "rgba(245, 158, 11, 0.1)",
+                          color: part.status === "approved" ? "var(--success)" : part.status === "rejected" ? "var(--danger)" : "var(--warning)"
+                        }}>{part.status === "interviewing" ? "Interviewing" : part.status === "approved" ? "Approved" : part.status === "rejected" ? "Rejected" : "Applied"}</span>
+
+                        <div style={{ display: "flex", gap: "6px", marginTop: "12px" }}>
+                          {part.status === "applied" && (
+                            <button
+                              onClick={async () => {
+                                const res = await updatePartnerStatus(part.id || "", "interviewing");
+                                if (res.success) {
+                                  addToast("Partnership sent to Interview stage", "success");
+                                  loadData();
+                                } else {
+                                  addToast(res.message || "Failed to update", "error");
+                                }
+                              }}
+                              className="btn btn-outline btn-xs"
+                              style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                            >
+                              Interview
+                            </button>
+                          )}
+                          {part.status !== "approved" && (
+                            <button
+                              onClick={async () => {
+                                const res = await updatePartnerStatus(part.id || "", "approved");
+                                if (res.success) {
+                                  addToast("Partnership request approved!", "success");
+                                  loadData();
+                                } else {
+                                  addToast(res.message || "Failed to update", "error");
+                                }
+                              }}
+                              className="btn btn-primary btn-xs"
+                              style={{ padding: "4px 8px", fontSize: "0.75rem", background: "var(--success)", borderColor: "var(--success)" }}
+                            >
+                              Approve
+                            </button>
+                          )}
+                          {part.status !== "rejected" && (
+                            <button
+                              onClick={async () => {
+                                const res = await updatePartnerStatus(part.id || "", "rejected");
+                                if (res.success) {
+                                  addToast("Partnership request rejected.", "info");
+                                  loadData();
+                                } else {
+                                  addToast(res.message || "Failed to update", "error");
+                                }
+                              }}
+                              className="btn btn-outline btn-xs"
+                              style={{ padding: "4px 8px", fontSize: "0.75rem", color: "var(--danger)", borderColor: "var(--danger)" }}
+                            >
+                              Reject
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "queries" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            {revisionRequests.length === 0 ? (
+              <div className="card" style={{ padding: "48px 20px", textAlign: "center", border: "1px dashed var(--border)" }}>
+                <p style={{ color: "var(--text-secondary)", margin: 0 }}>
+                  No pending user queries or revision requests.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "20px" }}>
+                {revisionRequests.map((request) => {
+                  const cat = CATEGORY_META[request.category];
+                  return (
+                    <div key={request.id} className="card" style={{ padding: "28px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
+                        <div>
+                          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap", marginBottom: "8px" }}>
+                            <span className="tag" style={{ background: cat ? cat.color + "15" : "rgba(0,0,0,0.05)", color: cat ? cat.color : "inherit" }}>
+                              {cat ? `${cat.emoji} ${cat.label}` : "Task"}
+                            </span>
+                            <span className="tag" style={{ background: "rgba(245, 158, 11, 0.1)", color: "var(--warning)" }}>
+                              Action Requested: {request.userQueryAction === "delete" ? "Delete / Cancel" : "Edit Proposal"}
+                            </span>
+                          </div>
+                          <h3 style={{ color: "var(--text)", fontWeight: 700, margin: 0 }}>{request.title}</h3>
+                          <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "4px", margin: 0 }}>
+                            Proposed by: {request.applicantName} ({request.email})
+                          </p>
+                        </div>
+                        <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                          Current Status: <strong style={{ textTransform: "capitalize" }}>{request.status}</strong>
+                        </span>
+                      </div>
+
+                      <div style={{ background: "rgba(245, 158, 11, 0.03)", border: "1px solid rgba(245, 158, 11, 0.2)", borderRadius: "12px", padding: "16px", marginBottom: "20px" }}>
+                        <strong style={{ fontSize: "0.85rem", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
+                          Reason for request:
+                        </strong>
+                        <span style={{ fontSize: "0.9rem", color: "var(--text)", fontStyle: "italic" }}>
+                          "{request.userQueryReason}"
+                        </span>
+                      </div>
+
+                      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                        {request.userQueryAction === "edit" && (
+                          <button
+                            onClick={() => handleAllowEdit(request.id)}
+                            className="btn btn-primary btn-sm"
+                          >
+                            Allow User to Edit
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteProposal(request.id)}
+                          className="btn btn-sm"
+                          style={{ background: "rgba(239, 68, 68, 0.08)", color: "var(--danger)", border: "1px solid rgba(239, 68, 68, 0.2)" }}
+                        >
+                          Delete Proposal (Archive)
+                        </button>
+                        <button
+                          onClick={() => handleResolveQuery(request.id)}
+                          className="btn btn-secondary btn-sm"
+                        >
+                          Dismiss / Resolve Request
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* DELETE PROMPT MODAL OVERLAY */}
+        {isDeletePromptOpen && (
+          <div style={modalOverlayStyle}>
+            <div style={{ ...modalContentStyle, maxWidth: "460px", padding: "28px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                <h3 style={{ fontSize: "1.2rem", fontWeight: 700, color: "var(--text)", margin: 0 }}>
+                  Archive & Delete Proposal
+                </h3>
+                <button
+                  onClick={() => {
+                    setIsDeletePromptOpen(false);
+                    setProposalIdToDelete(null);
+                    setDeletionReason("");
+                  }}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <p style={{ fontSize: "0.88rem", color: "var(--text-secondary)", marginBottom: "16px", lineHeight: "1.5" }}>
+                Please specify the reason for deleting and archiving this proposal:
+              </p>
+              <div style={{ marginBottom: "20px" }}>
+                <textarea
+                  required
+                  rows={3}
+                  value={deletionReason}
+                  onChange={(e) => setDeletionReason(e.target.value)}
+                  placeholder="e.g., Requested by user / Inappropriate content..."
+                  style={{
+                    width: "100%",
+                    borderRadius: "8px",
+                    border: "1px solid var(--border)",
+                    padding: "10px",
+                    fontSize: "0.9rem",
+                    fontFamily: "inherit",
+                    resize: "vertical"
+                  }}
+                />
+              </div>
+              <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsDeletePromptOpen(false);
+                    setProposalIdToDelete(null);
+                    setDeletionReason("");
+                  }}
+                  className="btn btn-secondary btn-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteProposal}
+                  className="btn btn-sm"
+                  style={{ background: "var(--danger)", color: "white" }}
+                >
+                  Confirm Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Moderator Edit Details Modal */}
+        {isEditModalOpen && editingProposal && (
+          <div className="modal-overlay" onClick={() => { setIsEditModalOpen(false); setEditingProposal(null); }}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "700px", width: "95%" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--primary)" }}>✏️ Edit Proposal Details</h2>
+                <button
+                  type="button"
+                  onClick={() => { setIsEditModalOpen(false); setEditingProposal(null); }}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.25rem" }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEditProposal} style={{ maxHeight: "calc(100vh - 200px)", overflowY: "auto", paddingRight: "8px" }}>
+                <div className="form-group" style={{ marginBottom: "16px" }}>
+                  <label htmlFor="editTitle" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
+                    Initiative Title <span className="required">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="editTitle"
+                    required
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)" }}
+                  />
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "16px" }}>
+                  <div className="form-group">
+                    <label htmlFor="editCategory" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
+                      Category <span className="required">*</span>
+                    </label>
+                    <select
+                      id="editCategory"
+                      required
+                      value={editCategory}
+                      onChange={(e) => setEditCategory(e.target.value)}
+                      style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", background: "white" }}
+                    >
+                      <option value="cleanliness">Cleanliness & Waste Management</option>
+                      <option value="plantation">Plantation & Environment</option>
+                      <option value="education">Education & Tutoring</option>
+                      <option value="animal-welfare">Animal Welfare</option>
+                      <option value="community-help">Community Care & Help</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="editEventDuration" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
+                      Duration of Event <span className="required">*</span>
+                    </label>
+                    <select
+                      id="editEventDuration"
+                      required
+                      value={editEventDuration}
+                      onChange={(e) => setEditEventDuration(parseInt(e.target.value) || 1)}
+                      style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", background: "white" }}
+                    >
+                      <option value={1}>1 day</option>
+                      <option value={2}>2 days</option>
+                      <option value={3}>3 days</option>
+                      <option value={4}>4 days</option>
+                      <option value={5}>5 days</option>
+                      <option value={6}>6 days</option>
+                      <option value={7}>7 days</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="editVolunteersNeeded" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
+                      Volunteers Needed <span className="required">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      id="editVolunteersNeeded"
+                      required
+                      min="1"
+                      value={editVolunteersNeeded}
+                      onChange={(e) => setEditVolunteersNeeded(parseInt(e.target.value) || 1)}
+                      style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)" }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "16px" }}>
+                  <div className="form-group">
+                    <label htmlFor="editEventDate" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
+                      Proposed Date <span className="required">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      id="editEventDate"
+                      required
+                      min={new Date().toISOString().split('T')[0]}
+                      value={editEventDate}
+                      onChange={(e) => setEditEventDate(e.target.value)}
+                      style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)" }}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="editEventTime" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
+                      Proposed Time (Optional)
+                    </label>
+                    <input
+                      type="time"
+                      id="editEventTime"
+                      value={editEventTime}
+                      onChange={(e) => setEditEventTime(e.target.value)}
+                      style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)" }}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: "16px" }}>
+                  <label htmlFor="editShortDescription" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
+                    Short Description <span className="required">*</span>
+                  </label>
+                  <textarea
+                    id="editShortDescription"
+                    required
+                    maxLength={200}
+                    rows={2}
+                    value={editShortDescription}
+                    onChange={(e) => setEditShortDescription(e.target.value)}
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", fontFamily: "inherit" }}
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: "16px" }}>
+                  <label htmlFor="editDescription" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
+                    Detailed Description <span className="required">*</span>
+                  </label>
+                  <textarea
+                    id="editDescription"
+                    required
+                    maxLength={1500}
+                    rows={5}
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", fontFamily: "inherit" }}
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: "16px" }}>
+                  <label htmlFor="editAddress" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
+                    Full Address <span className="required">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="editAddress"
+                    required
+                    value={editAddress}
+                    onChange={(e) => setEditAddress(e.target.value)}
+                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)" }}
+                  />
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "16px", marginBottom: "20px" }}>
+                  <div className="form-group">
+                    <label htmlFor="editLocality" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
+                      Locality / Area <span className="required">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="editLocality"
+                      required
+                      value={editLocality}
+                      onChange={(e) => setEditLocality(e.target.value)}
+                      style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)" }}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="editPincode" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
+                      Pincode <span className="required">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="editPincode"
+                      required
+                      value={editPincode}
+                      onChange={(e) => setEditPincode(e.target.value)}
+                      style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)" }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "24px" }}>
+                  <button
+                    type="button"
+                    onClick={() => { setIsEditModalOpen(false); setEditingProposal(null); }}
+                    className="btn btn-secondary"
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Proposal Rejection Reason Modal */}
+        {isRejectModalOpen && (
+          <div className="modal-overlay" onClick={() => { setIsRejectModalOpen(false); setRejectProposalId(null); }}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "500px", width: "90%", padding: "24px" }}>
+              <h3 style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--danger)", marginBottom: "12px" }}>
+                Reject Initiative Proposal
+              </h3>
+              <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "16px" }}>
+                Please specify the reason for declining this campaign proposal. This reason will be emailed to the proposer and displayed on their dashboard.
+              </p>
+              <div className="form-group" style={{ marginBottom: "20px" }}>
+                <label htmlFor="proposalRejectionReason" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "6px" }}>
+                  Rejection Reason:
+                </label>
+                <textarea
+                  id="proposalRejectionReason"
+                  rows={4}
+                  placeholder="e.g. Incomplete address details or scheduled date falls on a public holiday..."
+                  value={proposalRejectionReason}
+                  onChange={(e) => setProposalRejectionReason(e.target.value)}
+                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", resize: "vertical", fontSize: "0.9rem", fontFamily: "inherit" }}
+                />
+              </div>
+              <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => { setIsRejectModalOpen(false); setRejectProposalId(null); }}
+                  className="btn btn-secondary btn-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmRejectProposal}
+                  className="btn btn-sm"
+                  style={{ background: "var(--danger)", color: "white" }}
+                >
+                  Reject Proposal
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Volunteer Application Rejection Reason Modal */}
+        {isAppRejectModalOpen && (
+          <div className="modal-overlay" onClick={() => { setIsAppRejectModalOpen(false); setRejectAppId(null); }}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "500px", width: "90%", padding: "24px" }}>
+              <h3 style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--danger)", marginBottom: "12px" }}>
+                Decline Volunteer Application
+              </h3>
+              <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "16px" }}>
+                Please specify the reason for declining this volunteering request. The applicant will receive this reason in their notification email.
+              </p>
+              <div className="form-group" style={{ marginBottom: "20px" }}>
+                <label htmlFor="appRejectionReason" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "6px" }}>
+                  Reason:
+                </label>
+                <textarea
+                  id="appRejectionReason"
+                  rows={4}
+                  placeholder="e.g. All slots for this campaign are currently filled..."
+                  value={appRejectionReason}
+                  onChange={(e) => setAppRejectionReason(e.target.value)}
+                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", resize: "vertical", fontSize: "0.9rem", fontFamily: "inherit" }}
+                />
+              </div>
+              <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => { setIsAppRejectModalOpen(false); setRejectAppId(null); }}
+                  className="btn btn-secondary btn-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmRejectApp}
+                  className="btn btn-sm"
+                  style={{ background: "var(--danger)", color: "white" }}
+                >
+                  Confirm Decline
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -131,8 +131,8 @@ export default function Donate() {
       )}
 
       <form onSubmit={handleReportSubmit} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-        <div style={{ display: "flex", gap: "10px" }}>
-          <div style={{ flex: 1 }}>
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 240px" }}>
             <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
               Full Name
             </label>
@@ -153,7 +153,7 @@ export default function Donate() {
               }}
             />
           </div>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: "1 1 240px" }}>
             <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
               Email
             </label>
@@ -176,14 +176,21 @@ export default function Donate() {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: "10px" }}>
-          <div style={{ flex: 1 }}>
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 240px" }}>
             <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
               Phone Number
             </label>
             <input
               type="tel"
               required
+              pattern="^\+?[0-9\s\-]+$"
+              title="Please enter a valid phone number (digits, spaces, or leading +)"
+              onKeyPress={(e) => {
+                if (!/[0-9\s\-+]/.test(e.key)) {
+                  e.preventDefault();
+                }
+              }}
               placeholder="e.g. +91 9999999999"
               value={formPhone}
               onChange={(e) => setFormPhone(e.target.value)}
@@ -199,7 +206,7 @@ export default function Donate() {
               }}
             />
           </div>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: "1 1 240px" }}>
             <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
               Amount (INR)
             </label>
@@ -207,6 +214,11 @@ export default function Donate() {
               type="number"
               required
               min="1"
+              onKeyPress={(e) => {
+                if (!/[0-9]/.test(e.key)) {
+                  e.preventDefault();
+                }
+              }}
               placeholder="e.g. 1000"
               value={formAmount}
               onChange={(e) => setFormAmount(e.target.value)}

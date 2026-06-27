@@ -52,6 +52,7 @@ export function LogoFull({ size = 48, className = "" }: LogoProps) {
           projectdelhi<span style={{ color: "var(--terracotta)", fontWeight: 700 }}>.org</span>
         </span>
         <div
+          className="logo-subtitle"
           style={{
             display: "flex",
             alignItems: "center",

@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { getApprovedTasks, getStats } from "../store";
 import TaskCard from "../components/TaskCard";
 import {
@@ -14,8 +15,31 @@ import {
 } from "lucide-react";
 
 export default function Home() {
-  const tasks = getApprovedTasks().slice(0, 3);
+  const tasks = getApprovedTasks().slice(0, 4);
   const stats = getStats();
+  const location = useLocation();
+
+  useEffect(() => {
+    let targetId = "";
+    if (location.pathname === "/campaigns") {
+      targetId = "success-stories";
+    } else if (location.pathname === "/features") {
+      targetId = "impact-areas";
+    } else if (location.pathname === "/volunteer-guide") {
+      targetId = "volunteer-guide";
+    }
+
+    if (targetId) {
+      const element = document.getElementById(targetId);
+      if (element) {
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 100);
+      }
+    } else if (location.pathname === "/") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [location.pathname]);
 
   return (
     <>

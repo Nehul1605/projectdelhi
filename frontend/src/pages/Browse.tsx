@@ -52,15 +52,18 @@ export default function Browse() {
         >
           All
         </button>
-        {categories.map(([key, meta]) => (
-          <button
-            key={key}
-            className={`filter-chip ${filter === key ? 'active' : ''}`}
-            onClick={() => setFilter(key)}
-          >
-            {meta.emoji} {meta.label}
-          </button>
-        ))}
+        {categories.map(([key, meta]) => {
+          const isActive = filter === key;
+          return (
+            <button
+              key={key}
+              className={`filter-chip ${isActive ? 'active' : ''}`}
+              onClick={() => setFilter(key)}
+            >
+              {meta.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Task Grid */}

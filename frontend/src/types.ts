@@ -32,6 +32,7 @@ export interface VolunteerApp {
   prevExperience?: string;
   status: ApplicationStatus;
   createdAt: string;
+  rejectionReason?: string;
 }
 
 export type TaskCategory =
@@ -48,10 +49,13 @@ export interface TaskRequest {
   id: string;
   title: string;
   description: string;
+  shortDescription?: string;
   category: TaskCategory;
   applicantType: ApplicantType;
   applicantName: string;
   organizationName?: string;
+  organizationType?: string;
+  designation?: string;
   email: string;
   phone: string;
   address: string;
@@ -61,12 +65,28 @@ export interface TaskRequest {
   eventDate: string;
   eventTime: string;
   volunteersNeeded: number;
+  eventDuration?: number;
   status: TaskStatus;
   createdAt: string;
   volunteers: Volunteer[];
   imageUrl?: string;
   moderatorRequest?: string;
   userResponse?: string;
+  allowUserEdit?: boolean;
+  userQueryAction?: "edit" | "delete" | null;
+  userQueryReason?: string;
+  userQueryStatus?: "pending" | "resolved" | null;
+  chatMessages?: ChatMessage[];
+  rejectionReason?: string;
+  isFeatured?: boolean;
+}
+
+export interface ChatMessage {
+  id: string;
+  sender: "moderator" | "user";
+  senderName: string;
+  text: string;
+  timestamp: string;
 }
 
 export interface Volunteer {
@@ -91,3 +111,19 @@ export const CATEGORY_META: Record<
   awareness: { label: "Awareness Campaign", emoji: "📢", color: "#3B82F6" },
   other: { label: "Other Initiative", emoji: "💡", color: "#EC4899" },
 };
+
+export interface GeneralPartner {
+  id?: string;
+  taskId?: string;
+  taskTitle?: string;
+  orgName: string;
+  orgType: string;
+  contactName: string;
+  designation: string;
+  email: string;
+  phone: string;
+  collabReason: string;
+  location: string;
+  status?: string;
+  createdAt?: string;
+}

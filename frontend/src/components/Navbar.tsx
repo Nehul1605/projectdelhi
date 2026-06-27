@@ -9,11 +9,17 @@ export default function Navbar() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [logoSize, setLogoSize] = useState(window.innerWidth < 480 ? 44 : 72);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
+    const handleResize = () => setLogoSize(window.innerWidth < 480 ? 44 : 72);
     window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   useEffect(() => {
@@ -34,7 +40,7 @@ export default function Navbar() {
     <nav className={`navbar ${scrolled ? "scrolled" : ""}`}>
       <div className="navbar-inner">
         <Link to="/" className="navbar-brand" style={{ padding: "0" }}>
-          <LogoFull size={72} />
+          <LogoFull size={logoSize} />
         </Link>
 
         <button
