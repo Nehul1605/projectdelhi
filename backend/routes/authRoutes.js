@@ -156,7 +156,7 @@ router.post("/auth/forgot-password", async (req, res) => {
     await user.save();
 
     // Reset link
-    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    const clientUrl = req.get("origin") || process.env.CLIENT_URL || "http://localhost:5173";
     const resetLink = `${clientUrl}/reset-password?token=${token}&email=${encodeURIComponent(user.email)}`;
 
     // Print to console for easy local access

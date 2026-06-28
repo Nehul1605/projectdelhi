@@ -1,5 +1,7 @@
 const nodemailer = require("nodemailer");
 
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+
 const hasValidConfig = () => {
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
@@ -82,7 +84,7 @@ const mailer = {
           <p><strong>Scheduled Event:</strong> ${proposal.eventDate} at ${proposal.eventTime}</p>
           <p><strong>Description:</strong><br>${proposal.description}</p>
           <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p><a href="http://localhost:5173/volunteer-dashboard" style="background-color: #8c2424; color: white; padding: 10px 18px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Review Proposal</a></p>
+          <p><a href="${CLIENT_URL}/volunteer-dashboard" style="background-color: #8c2424; color: white; padding: 10px 18px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Review Proposal</a></p>
         </div>
       `,
     });
@@ -118,7 +120,7 @@ const mailer = {
             "${query}"
           </div>
           <p>Please log into your dashboard on Project Delhi, click on the proposal, and provide your response to proceed with the approval process.</p>
-          <p><a href="http://localhost:5173/dashboard" style="background-color: #f57c00; color: white; padding: 10px 18px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Respond to Request</a></p>
+          <p><a href="${CLIENT_URL}/dashboard" style="background-color: #f57c00; color: white; padding: 10px 18px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Respond to Request</a></p>
           <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
           <p>Best regards,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
         </div>
@@ -137,7 +139,7 @@ const mailer = {
           <p>Dear ${applicantName},</p>
           <p>Great news! Your campaign proposal <strong>"${proposalTitle}"</strong> has been approved and is now officially live on the Project Delhi site.</p>
           <p>Volunteers across Delhi can now browse, read about, and register to volunteer for your campaign.</p>
-          <p><a href="http://localhost:5173/browse" style="background-color: #2e7d32; color: white; padding: 10px 18px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Explore Campaigns</a></p>
+          <p><a href="${CLIENT_URL}/browse" style="background-color: #2e7d32; color: white; padding: 10px 18px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Explore Campaigns</a></p>
           <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
           <p>Thank you for contributing to our community,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
         </div>
@@ -234,7 +236,7 @@ const mailer = {
           <p><strong>Email:</strong> ${appRecord.email}</p>
           <p><strong>Phone:</strong> ${appRecord.phone}</p>
           <p><strong>Reason/Experience:</strong><br>${appRecord.reason}</p>
-          <p><a href="http://localhost:5173/volunteer-dashboard">Go to Moderator Dashboard</a> to review.</p>
+          <p><a href="${CLIENT_URL}/volunteer-dashboard">Go to Moderator Dashboard</a> to review.</p>
         </div>
       `,
     });
@@ -461,7 +463,7 @@ const mailer = {
           <p>Dear ${applicantName},</p>
           <p>An admin/moderator has reviewed your query and granted edit permissions for your proposal <strong>"${proposalTitle}"</strong>.</p>
           <p>The "Edit" button is now active on your proposer dashboard. Please log in and submit your revisions.</p>
-          <p style="margin-top: 24px;"><a href="http://localhost:5173/dashboard" style="background-color: #2e7d32; color: white; padding: 10px 18px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Go to Dashboard</a></p>
+          <p style="margin-top: 24px;"><a href="${CLIENT_URL}/dashboard" style="background-color: #2e7d32; color: white; padding: 10px 18px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Go to Dashboard</a></p>
           <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
           <p>Best regards,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
         </div>
