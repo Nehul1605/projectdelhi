@@ -162,8 +162,10 @@ router.post("/auth/forgot-password", async (req, res) => {
     // Print to console for easy local access
     console.log(`\n========================================\n🔑 [PASSWORD RESET LINK]\nClick/copy this link to reset password:\n${resetLink}\n========================================\n`);
 
-    // Send email
-    await mailer.sendPasswordResetEmail(user.email, user.name, resetLink);
+    // Send email in the background to avoid blocking the response
+    mailer.sendPasswordResetEmail(user.email, user.name, resetLink).catch((error) => {
+      console.error("Failed to send password reset email:", error.message);
+    });
 
     await logActivity({
       userId: user._id,
