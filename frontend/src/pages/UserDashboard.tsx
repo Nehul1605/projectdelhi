@@ -61,6 +61,9 @@ export default function UserDashboard({ addToast }: Props) {
   const [editPincode, setEditPincode] = useState("");
   const [editShortDescription, setEditShortDescription] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editOrgName, setEditOrgName] = useState("");
+  const [editOrgType, setEditOrgType] = useState("");
+  const [editDesignation, setEditDesignation] = useState("");
   const [submittingEdit, setSubmittingEdit] = useState(false);
 
   // Delete Confirmation Modal State
@@ -244,6 +247,9 @@ export default function UserDashboard({ addToast }: Props) {
     setEditPincode(proposal.pincode);
     setEditShortDescription(proposal.shortDescription || "");
     setEditDescription(proposal.description);
+    setEditOrgName(proposal.organizationName || "");
+    setEditOrgType(proposal.organizationType || "");
+    setEditDesignation(proposal.designation || "");
     setIsEditModalOpen(true);
   };
 
@@ -295,7 +301,10 @@ export default function UserDashboard({ addToast }: Props) {
         locality: editLocality.trim(),
         pincode: editPincode.trim(),
         shortDescription: editShortDescription.trim(),
-        description: editDescription.trim()
+        description: editDescription.trim(),
+        organizationName: selectedProposalForEdit.applicantType === "group" ? editOrgName.trim() : undefined,
+        organizationType: selectedProposalForEdit.applicantType === "group" ? editOrgType : undefined,
+        designation: selectedProposalForEdit.applicantType === "group" ? editDesignation.trim() : undefined
       });
       addToast("Proposal updated successfully!", "success");
       setIsEditModalOpen(false);
@@ -856,6 +865,57 @@ export default function UserDashboard({ addToast }: Props) {
             </div>
 
             <form onSubmit={handleEditSubmit}>
+              {selectedProposalForEdit.applicantType === "group" && (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+                    <div className="form-group">
+                      <label htmlFor="editOrgName" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "6px" }}>
+                        Organization Name <span className="required">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="editOrgName"
+                        required
+                        value={editOrgName}
+                        onChange={(e) => setEditOrgName(e.target.value)}
+                        style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)" }}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="editOrgType" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "6px" }}>
+                        Organization Type <span className="required">*</span>
+                      </label>
+                      <select
+                        id="editOrgType"
+                        required
+                        value={editOrgType}
+                        onChange={(e) => setEditOrgType(e.target.value)}
+                        style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", background: "white" }}
+                      >
+                        <option value="" disabled>Select organization type</option>
+                        <option value="Corporate">Corporate</option>
+                        <option value="NGO / NPO">NGO / NPO</option>
+                        <option value="Government">Government</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="form-group" style={{ marginBottom: "16px" }}>
+                    <label htmlFor="editDesignation" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "6px" }}>
+                      Your Designation <span className="required">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="editDesignation"
+                      required
+                      value={editDesignation}
+                      onChange={(e) => setEditDesignation(e.target.value)}
+                      style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)" }}
+                    />
+                  </div>
+                </>
+              )}
+
               <div className="form-group" style={{ marginBottom: "16px" }}>
                 <label htmlFor="editTitle" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "6px" }}>
                   Title <span className="required">*</span>

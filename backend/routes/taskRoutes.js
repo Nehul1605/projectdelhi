@@ -12,6 +12,7 @@ const sanitizeTaskData = (data) => {
   if (sanitized.title) sanitized.title = toTitleCase(sanitized.title);
   if (sanitized.applicantName) sanitized.applicantName = toTitleCase(sanitized.applicantName);
   if (sanitized.organizationName) sanitized.organizationName = toTitleCase(sanitized.organizationName);
+  if (sanitized.designation) sanitized.designation = toTitleCase(sanitized.designation);
   if (sanitized.locality) sanitized.locality = toTitleCase(sanitized.locality);
   if (sanitized.city) sanitized.city = toTitleCase(sanitized.city);
   if (sanitized.address) sanitized.address = toSentenceCase(sanitized.address);
@@ -494,7 +495,8 @@ router.put("/tasks/:id/edit-proposal", async (req, res) => {
     const updatableFields = [
       "title", "description", "shortDescription", "category",
       "eventDate", "eventTime", "volunteersNeeded", "eventDuration",
-      "address", "locality", "pincode", "city"
+      "address", "locality", "pincode", "city",
+      "organizationName", "organizationType", "designation"
     ];
     updatableFields.forEach(f => {
       if (sanitizedBody[f] !== undefined) {
@@ -539,7 +541,8 @@ router.put("/tasks/:id/admin-edit", async (req, res) => {
     const updatableFields = [
       "title", "description", "shortDescription", "category",
       "eventDate", "eventTime", "volunteersNeeded", "eventDuration",
-      "address", "locality", "pincode", "city"
+      "address", "locality", "pincode", "city",
+      "organizationName", "organizationType", "designation"
     ];
     updatableFields.forEach(f => {
       if (sanitizedBody[f] !== undefined) {

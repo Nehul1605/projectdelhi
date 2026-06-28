@@ -158,6 +158,10 @@ export default function Submit({ addToast }: Props) {
         applicantName: get("applicantName"),
         organizationName:
           applicantType === "group" ? get("organizationName") : undefined,
+        organizationType:
+          applicantType === "group" ? get("organizationType") : undefined,
+        designation:
+          applicantType === "group" ? get("designation") : undefined,
         email: get("email"),
         phone: get("phone"),
         address: addressLine,
@@ -233,6 +237,56 @@ export default function Submit({ addToast }: Props) {
               />
             </div>
           </div>
+
+          {applicantType === "group" && (
+            <>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="organizationName">
+                    Organization Name <span className="required">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="organizationName"
+                    id="organizationName"
+                    required
+                    placeholder="e.g. Save Delhi Foundation"
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="organizationType">
+                    Organization Type <span className="required">*</span>
+                  </label>
+                  <select
+                    name="organizationType"
+                    id="organizationType"
+                    required
+                    defaultValue=""
+                  >
+                    <option value="" disabled>Select organization type</option>
+                    <option value="Corporate">Corporate</option>
+                    <option value="NGO / NPO">NGO / NPO</option>
+                    <option value="Government">Government</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="designation">
+                    Your Designation <span className="required">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="designation"
+                    id="designation"
+                    required
+                    placeholder="e.g. President, Secretary"
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="form-row">
             <div className="form-group">

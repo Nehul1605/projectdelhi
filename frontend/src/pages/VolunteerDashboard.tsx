@@ -81,6 +81,9 @@ export default function VolunteerDashboard({
   const [editLocality, setEditLocality] = useState("");
   const [editPincode, setEditPincode] = useState("");
   const [editCity, setEditCity] = useState("");
+  const [editOrgName, setEditOrgName] = useState("");
+  const [editOrgType, setEditOrgType] = useState("");
+  const [editDesignation, setEditDesignation] = useState("");
 
   const handleStartEditProposal = (proposal: TaskRequest) => {
     setEditingProposal(proposal);
@@ -96,6 +99,9 @@ export default function VolunteerDashboard({
     setEditLocality(proposal.locality);
     setEditPincode(proposal.pincode);
     setEditCity(proposal.city);
+    setEditOrgName(proposal.organizationName || "");
+    setEditOrgType(proposal.organizationType || "");
+    setEditDesignation(proposal.designation || "");
     setIsEditModalOpen(true);
   };
 
@@ -117,6 +123,9 @@ export default function VolunteerDashboard({
         locality: editLocality,
         pincode: editPincode,
         city: editCity,
+        organizationName: editingProposal.applicantType === "group" ? editOrgName : undefined,
+        organizationType: editingProposal.applicantType === "group" ? editOrgType : undefined,
+        designation: editingProposal.applicantType === "group" ? editDesignation : undefined,
       });
 
       addToast("Proposal details updated successfully.", "success");
@@ -489,7 +498,7 @@ export default function VolunteerDashboard({
                     <div>
                       <strong style={{ color: "var(--text-secondary)" }}>Applicant:</strong>
                       <div style={{ textTransform: "capitalize", marginTop: "2px", fontWeight: 600 }}>
-                        {proposal.applicantType === "group" ? `Group: ${proposal.organizationName || 'Organization'}` : 'Individual'}
+                        {proposal.applicantType === "group" ? `Group: ${proposal.organizationName || 'Organization'}${proposal.organizationType ? ` (${proposal.organizationType})` : ''}${proposal.designation ? ` (${proposal.designation})` : ''}` : 'Individual'}
                       </div>
                     </div>
                     <div>
@@ -1119,6 +1128,57 @@ export default function VolunteerDashboard({
               </div>
 
               <form onSubmit={handleSaveEditProposal} style={{ maxHeight: "calc(100vh - 200px)", overflowY: "auto", paddingRight: "8px" }}>
+                {editingProposal.applicantType === "group" && (
+                  <>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+                      <div className="form-group">
+                        <label htmlFor="editOrgName" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
+                          Organization Name <span className="required">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          id="editOrgName"
+                          required
+                          value={editOrgName}
+                          onChange={(e) => setEditOrgName(e.target.value)}
+                          style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)" }}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label htmlFor="editOrgType" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
+                          Organization Type <span className="required">*</span>
+                        </label>
+                        <select
+                          id="editOrgType"
+                          required
+                          value={editOrgType}
+                          onChange={(e) => setEditOrgType(e.target.value)}
+                          style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", background: "white" }}
+                        >
+                          <option value="" disabled>Select organization type</option>
+                          <option value="Corporate">Corporate</option>
+                          <option value="NGO / NPO">NGO / NPO</option>
+                          <option value="Government">Government</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="form-group" style={{ marginBottom: "16px" }}>
+                      <label htmlFor="editDesignation" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
+                        Your Designation <span className="required">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="editDesignation"
+                        required
+                        value={editDesignation}
+                        onChange={(e) => setEditDesignation(e.target.value)}
+                        style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)" }}
+                      />
+                    </div>
+                  </>
+                )}
+
                 <div className="form-group" style={{ marginBottom: "16px" }}>
                   <label htmlFor="editTitle" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
                     Initiative Title <span className="required">*</span>

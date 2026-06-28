@@ -418,7 +418,12 @@ Learn details and register here: ${eventUrl}`;
             </div>
             <div className="info-block">
               <label>👤 Organized By</label>
-              <span>{task.applicantName}{task.organizationName ? ` (${task.organizationName})` : ''}</span>
+              <span>
+                {task.applicantName}
+                {task.organizationName
+                  ? ` (${task.designation ? `${task.designation}, ` : ""}${task.organizationName}${task.organizationType ? ` - ${task.organizationType}` : ""})`
+                  : ""}
+              </span>
             </div>
           </div>
         </div>
