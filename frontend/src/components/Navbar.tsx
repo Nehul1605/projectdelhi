@@ -59,7 +59,7 @@ export default function Navbar() {
           >
             Home
           </Link>
-          <Link to="/browse" className={isActive("/browse")}>
+          <Link to="/initiatives" className={isActive("/initiatives")}>
             Explore Campaigns
           </Link>
            {user?.role === "USER" && (

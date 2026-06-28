@@ -57,7 +57,7 @@ export default function TaskDetail({ addToast }: Props) {
         <div className="empty-state">
           <h3>Task not found</h3>
           <p>This initiative may have been removed or doesn't exist.</p>
-          <Link to="/browse" className="btn btn-primary" style={{ marginTop: 16 }}>Browse Tasks</Link>
+          <Link to="/initiatives" className="btn btn-primary" style={{ marginTop: 16 }}>Browse Initiatives</Link>
         </div>
       </div>
     );
@@ -357,7 +357,7 @@ Learn details and register here: ${eventUrl}`;
 
   return (
     <div className="container page-section">
-      <Link to="/browse" className="back-link">← Back to Browse</Link>
+      <Link to="/initiatives" className="back-link">← Back to Initiatives</Link>
 
       <div className="task-detail-layout">
         <div className="task-detail-main">

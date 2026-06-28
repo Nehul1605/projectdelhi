@@ -103,7 +103,7 @@ export default function Home() {
               <PlusCircle size={20} /> Propose an Initiative
             </Link>
             <Link
-              to="/browse"
+              to="/initiatives"
               className="btn btn-secondary btn-lg"
               style={{
                 background: "rgba(255, 255, 255, 0.15)",
@@ -267,7 +267,7 @@ export default function Home() {
               ))}
             </div>
             <div style={{ textAlign: "center", marginTop: 32 }}>
-              <Link to="/browse" className="btn btn-secondary">
+              <Link to="/initiatives" className="btn btn-secondary">
                 View All Campaigns <ArrowRight size={18} />
               </Link>
             </div>
@@ -397,7 +397,7 @@ export default function Home() {
                   <PlusCircle size={20} style={{ marginLeft: "8px" }} />
                 </Link>
                 <Link
-                  to="/browse"
+                  to="/initiatives"
                   className="btn btn-lg"
                   style={{
                     padding: "20px 40px",

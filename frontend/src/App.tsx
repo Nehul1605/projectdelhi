@@ -220,10 +220,12 @@ export default function App() {
 
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/campaigns" element={<Home />} />
+        <Route path="/campaigns" element={<Navigate to="/initiatives" replace />} />
         <Route path="/features" element={<Home />} />
         <Route path="/volunteer-guide" element={<Home />} />
-        <Route path="/browse" element={<Browse />} />
+        <Route path="/initiatives" element={<Browse />} />
+        <Route path="/browse" element={<Navigate to="/initiatives" replace />} />
+        <Route path="/events" element={<Navigate to="/initiatives" replace />} />
         <Route
           path="/submit"
           element={
@@ -252,9 +254,9 @@ export default function App() {
         <Route path="/signup" element={<Signup addToast={addToast} />} />
         <Route path="/reset-password" element={<ResetPassword addToast={addToast} />} />
         <Route path="/donate" element={<Donate />} />
-        <Route path="/task/:id" element={<TaskDetail addToast={addToast} />} />
+        <Route path="/task/:id" element={<Navigate to="/initiatives" replace />} />
         <Route path="/initiatives/:slug" element={<TaskDetail addToast={addToast} />} />
-        <Route path="/events/:slug" element={<TaskDetail addToast={addToast} />} />
+        <Route path="/events/:slug" element={<Navigate to="/initiatives" replace />} />
         <Route
           path="/admin"
           element={
@@ -266,6 +268,7 @@ export default function App() {
         <Route path="/privacy-policy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/donation-policy" element={<DonationPolicy />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
       <footer
@@ -366,7 +369,7 @@ export default function App() {
               >
                 <li>
                   <Link
-                    to="/campaigns"
+                    to="/initiatives"
                     style={{
                       color: "var(--text-muted)",
                       textDecoration: "none",
