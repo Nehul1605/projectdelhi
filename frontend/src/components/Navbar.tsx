@@ -9,12 +9,12 @@ export default function Navbar() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [logoSize, setLogoSize] = useState(window.innerWidth < 480 ? 44 : 72);
+  const [logoSize, setLogoSize] = useState(window.innerWidth < 768 ? 48 : 72);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
-    const handleResize = () => setLogoSize(window.innerWidth < 480 ? 44 : 72);
+    const handleResize = () => setLogoSize(window.innerWidth < 768 ? 48 : 72);
     window.addEventListener("scroll", onScroll);
     window.addEventListener("resize", handleResize);
     return () => {
