@@ -23,9 +23,9 @@ export default function Home() {
     let targetId = "";
     if (location.pathname === "/campaigns") {
       targetId = "success-stories";
-    } else if (location.pathname === "/impact-areas") {
+    } else if (location.pathname === "/our-causes") {
       targetId = "impact-areas";
-    } else if (location.pathname === "/how-it-works") {
+    } else if (location.pathname === "/volunteer-journey") {
       targetId = "volunteer-guide";
     }
 

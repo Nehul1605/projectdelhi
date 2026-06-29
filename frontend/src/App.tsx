@@ -221,8 +221,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/campaigns" element={<Navigate to="/initiatives" replace />} />
-        <Route path="/impact-areas" element={<Home />} />
-        <Route path="/how-it-works" element={<Home />} />
+        <Route path="/our-causes" element={<Home />} />
+        <Route path="/volunteer-journey" element={<Home />} />
         <Route path="/initiatives" element={<Browse />} />
         <Route path="/browse" element={<Navigate to="/initiatives" replace />} />
         <Route path="/events" element={<Navigate to="/initiatives" replace />} />
@@ -387,9 +387,9 @@ export default function App() {
                 </li>
                 <li>
                   <Link
-                    to="/impact-areas"
+                    to="/our-causes"
                     onClick={() => {
-                      if (window.location.pathname === "/impact-areas") {
+                      if (window.location.pathname === "/our-causes") {
                         const element = document.getElementById("impact-areas");
                         if (element) {
                           element.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -408,7 +408,7 @@ export default function App() {
                       (e.currentTarget.style.color = "var(--text-muted)")
                     }
                   >
-                    Impact Areas
+                    Our Causes
                   </Link>
                 </li>
                 <li>
@@ -448,9 +448,9 @@ export default function App() {
               >
                 <li>
                   <Link
-                    to="/how-it-works"
+                    to="/volunteer-journey"
                     onClick={() => {
-                      if (window.location.pathname === "/how-it-works") {
+                      if (window.location.pathname === "/volunteer-journey") {
                         const element = document.getElementById("volunteer-guide");
                         if (element) {
                           element.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -469,7 +469,7 @@ export default function App() {
                       (e.currentTarget.style.color = "var(--text-muted)")
                     }
                   >
-                    How It Works
+                    Volunteer Journey
                   </Link>
                 </li>
                 <li>
