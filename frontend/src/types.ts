@@ -63,7 +63,7 @@ export interface TaskRequest {
   city: string;
   pincode: string;
   eventDate: string;
-  eventTime: string;
+  eventTime?: string;
   volunteersNeeded: number;
   eventDuration?: number;
   status: TaskStatus;
