@@ -3,6 +3,8 @@ const nodemailer = require("nodemailer");
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
 const hasValidConfig = () => {
+  if (process.env.RESEND_API_KEY) return true;
+
   const host = process.env.SMTP_HOST;
   const user = process.env.SMTP_USER;
   return (
@@ -13,9 +15,9 @@ const hasValidConfig = () => {
   );
 };
 
-// Create SMTP transporter if config is valid
+// Create SMTP transporter if config is valid (only if Resend API Key is not set)
 let transporter = null;
-if (hasValidConfig()) {
+if (!process.env.RESEND_API_KEY && hasValidConfig()) {
   transporter = nodemailer.createTransport({
     pool: true,
     host: process.env.SMTP_HOST,
@@ -35,20 +37,54 @@ if (hasValidConfig()) {
       console.log("✅ Mailrelay SMTP connection established successfully!");
     }
   });
+} else if (process.env.RESEND_API_KEY) {
+  console.log("✅ Resend API configured successfully for email delivery!");
 } else {
   console.warn(
-    "⚠️ Mailrelay SMTP credentials are using placeholder values. Emails will be logged to console instead of sent."
+    "⚠️ Mailer credentials are using placeholder values. Emails will be logged to console instead of sent."
   );
 }
 
 const sendEmail = async ({ to, subject, html }) => {
   if (!hasValidConfig()) {
     console.log(
-      `\n--- [SMTP MOCK LOG] ---\nTo: ${to}\nSubject: ${subject}\nBody: ${html}\n-----------------------\n`
+      `\n--- [MAILER MOCK LOG] ---\nTo: ${to}\nSubject: ${subject}\nBody: ${html}\n-----------------------\n`
     );
     return true;
   }
 
+  // If Resend API Key is present, send email via Resend's HTTPS REST API
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: process.env.SMTP_FROM || '"Naksh Foundation" <info@naksh.org>',
+          to: [to],
+          subject,
+          html,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        console.log("Email sent successfully via Resend API: %s", data.id);
+        return true;
+      } else {
+        console.error("Resend API returned error:", data);
+        return false;
+      }
+    } catch (error) {
+      console.error("Error sending email via Resend API:", error);
+      return false;
+    }
+  }
+
+  // Otherwise, fall back to Nodemailer SMTP
   try {
     const info = await transporter.sendMail({
       from: process.env.SMTP_FROM || '"Naksh Foundation" <info@naksh.org>',
@@ -56,7 +92,7 @@ const sendEmail = async ({ to, subject, html }) => {
       subject,
       html,
     });
-    console.log("Email sent successfully: %s", info.messageId);
+    console.log("Email sent successfully via SMTP: %s", info.messageId);
     return true;
   } catch (error) {
     console.error("Error sending SMTP email:", error);
