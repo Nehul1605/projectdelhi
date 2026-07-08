@@ -21,6 +21,7 @@ import {
   adminEditProposal,
   updateTaskFeatured,
 } from "../store";
+import ImageCropper from "../components/ImageCropper";
 import {
   CATEGORY_META,
   TaskRequest,
@@ -73,6 +74,7 @@ export default function Admin({ addToast }: Props) {
   const [editOrgName, setEditOrgName] = useState("");
   const [editOrgType, setEditOrgType] = useState("");
   const [editDesignation, setEditDesignation] = useState("");
+  const [editImageUrl, setEditImageUrl] = useState("");
 
   const handleStartEditProposal = (proposal: TaskRequest) => {
     setEditingProposal(proposal);
@@ -91,6 +93,7 @@ export default function Admin({ addToast }: Props) {
     setEditOrgName(proposal.organizationName || "");
     setEditOrgType(proposal.organizationType || "");
     setEditDesignation(proposal.designation || "");
+    setEditImageUrl(proposal.imageUrl || "");
     setIsEditModalOpen(true);
   };
 
@@ -120,6 +123,7 @@ export default function Admin({ addToast }: Props) {
         organizationName: editingProposal.applicantType === "group" ? editOrgName : undefined,
         organizationType: editingProposal.applicantType === "group" ? editOrgType : undefined,
         designation: editingProposal.applicantType === "group" ? editDesignation : undefined,
+        imageUrl: editImageUrl,
       });
 
       addToast("Proposal details updated successfully.", "success");
@@ -1550,6 +1554,16 @@ export default function Admin({ addToast }: Props) {
                     style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)" }}
                   />
                 </div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "6px" }}>
+                  Initiative Image / Cover Photo
+                </label>
+                <ImageCropper
+                  initialImageUrl={editImageUrl}
+                  onCropComplete={setEditImageUrl}
+                />
               </div>
 
               <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "24px" }}>

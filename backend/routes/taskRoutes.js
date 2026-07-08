@@ -537,7 +537,7 @@ router.put("/tasks/:id/edit-proposal", async (req, res) => {
       "title", "description", "shortDescription", "category",
       "eventDate", "eventTime", "volunteersNeeded", "eventDuration",
       "address", "locality", "pincode", "city",
-      "organizationName", "organizationType", "designation"
+      "organizationName", "organizationType", "designation", "imageUrl"
     ];
     updatableFields.forEach(f => {
       if (sanitizedBody[f] !== undefined) {
@@ -583,7 +583,7 @@ router.put("/tasks/:id/admin-edit", async (req, res) => {
       "title", "description", "shortDescription", "category",
       "eventDate", "eventTime", "volunteersNeeded", "eventDuration",
       "address", "locality", "pincode", "city",
-      "organizationName", "organizationType", "designation"
+      "organizationName", "organizationType", "designation", "imageUrl"
     ];
     updatableFields.forEach(f => {
       if (sanitizedBody[f] !== undefined) {

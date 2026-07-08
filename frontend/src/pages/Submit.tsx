@@ -7,6 +7,7 @@ import { addTask, getCurrentUser } from "../store";
 import { TaskCategory, ApplicantType, CATEGORY_META } from "../types";
 import { Search, MapPin, Loader2 } from "lucide-react";
 import debounce from "lodash/debounce";
+import ImageCropper from "../components/ImageCropper";
 
 // Fix Leaflet marker icon issue
 import markerIcon from "leaflet/dist/images/marker-icon.png";
@@ -73,6 +74,7 @@ export default function Submit({ addToast }: Props) {
   const [locality, setLocality] = useState("");
   const [shortDescText, setShortDescText] = useState("");
   const [descText, setDescText] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const today = new Date().toISOString().split("T")[0];
 
   const fetchSuggestionsRef = useRef(
@@ -221,6 +223,7 @@ export default function Submit({ addToast }: Props) {
         eventTime: get("eventTime") || undefined,
         eventDuration: parseInt(get("eventDuration")) || 1,
         volunteersNeeded: parseInt(get("volunteersNeeded")) || 10,
+        imageUrl: get("imageUrl") || undefined,
       });
 
       addToast("Your proposal has been submitted!", "success");
@@ -491,6 +494,23 @@ export default function Submit({ addToast }: Props) {
                 placeholder="e.g. 15"
               />
             </div>
+          </div>
+
+          <hr
+            style={{
+              border: "none",
+              borderTop: "1px solid var(--border-light)",
+              margin: "24px 0",
+            }}
+          />
+
+          {/* Photo Upload Section */}
+          <div className="form-group" style={{ marginBottom: "24px" }}>
+            <label style={{ display: "block", marginBottom: "8px", fontWeight: 600 }}>
+              Initiative Image / Cover Photo
+            </label>
+            <ImageCropper onCropComplete={setImageUrl} />
+            <input type="hidden" name="imageUrl" value={imageUrl} />
           </div>
 
           <hr

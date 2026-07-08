@@ -15,6 +15,7 @@ import {
   sendTaskChatMessage,
 } from "../store";
 import { TaskRequest, CATEGORY_META, VolunteerApp, ChatMessage } from "../types";
+import ImageCropper from "../components/ImageCropper";
 import { 
   Send, 
   AlertCircle, 
@@ -64,6 +65,7 @@ export default function UserDashboard({ addToast }: Props) {
   const [editOrgName, setEditOrgName] = useState("");
   const [editOrgType, setEditOrgType] = useState("");
   const [editDesignation, setEditDesignation] = useState("");
+  const [editImageUrl, setEditImageUrl] = useState("");
   const [submittingEdit, setSubmittingEdit] = useState(false);
 
   // Delete Confirmation Modal State
@@ -250,6 +252,7 @@ export default function UserDashboard({ addToast }: Props) {
     setEditOrgName(proposal.organizationName || "");
     setEditOrgType(proposal.organizationType || "");
     setEditDesignation(proposal.designation || "");
+    setEditImageUrl(proposal.imageUrl || "");
     setIsEditModalOpen(true);
   };
 
@@ -304,7 +307,8 @@ export default function UserDashboard({ addToast }: Props) {
         description: editDescription.trim(),
         organizationName: selectedProposalForEdit.applicantType === "group" ? editOrgName.trim() : undefined,
         organizationType: selectedProposalForEdit.applicantType === "group" ? editOrgType : undefined,
-        designation: selectedProposalForEdit.applicantType === "group" ? editDesignation.trim() : undefined
+        designation: selectedProposalForEdit.applicantType === "group" ? editDesignation.trim() : undefined,
+        imageUrl: editImageUrl,
       });
       addToast("Proposal updated successfully!", "success");
       setIsEditModalOpen(false);
@@ -1165,6 +1169,16 @@ export default function UserDashboard({ addToast }: Props) {
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
                   style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", fontFamily: "inherit", resize: "vertical" }}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: "24px" }}>
+                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "6px" }}>
+                  Initiative Image / Cover Photo
+                </label>
+                <ImageCropper
+                  initialImageUrl={editImageUrl}
+                  onCropComplete={setEditImageUrl}
                 />
               </div>
 
