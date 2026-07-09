@@ -100,46 +100,240 @@ const sendEmail = async ({ to, subject, html }) => {
   }
 };
 
+/**
+ * Generates a unified, premium HTML email wrapper using responsive tables and inline styles.
+ */
+const getHtmlTemplate = ({
+  title,
+  preheader = "Project Delhi Update",
+  themeColor = "#8c2424", // Naksh Burgundy
+  contentHtml,
+  button = null, // { label, url, color }
+  callout = null, // { text, type: 'info' | 'success' | 'warning' | 'danger' }
+  details = null, // Array of { label, value }
+}) => {
+  // Determine callout colors
+  let calloutBg = "#F8FAFC";
+  let calloutBorder = "#E2E8F0";
+  if (callout) {
+    switch (callout.type) {
+      case "success":
+        calloutBg = "#F0FDF4";
+        calloutBorder = "#16A34A";
+        break;
+      case "warning":
+        calloutBg = "#FFFBEB";
+        calloutBorder = "#D97706";
+        break;
+      case "danger":
+        calloutBg = "#FEF2F2";
+        calloutBorder = "#DC2626";
+        break;
+      case "info":
+      default:
+        calloutBg = "#EFF6FF";
+        calloutBorder = "#2563EB";
+        break;
+    }
+  }
+
+  // Generate details HTML
+  let detailsHtml = "";
+  if (details && details.length > 0) {
+    detailsHtml = `
+      <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 20px; margin: 24px 0;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+          ${details
+            .map(
+              (item) => `
+            <tr>
+              <td style="padding: 6px 0; font-size: 14px; color: #64748B; font-weight: 600; width: 35%; vertical-align: top;">${item.label}</td>
+              <td style="padding: 6px 0; font-size: 14px; color: #1E293B; width: 65%; vertical-align: top;">${item.value}</td>
+            </tr>
+          `
+            )
+            .join("")}
+        </table>
+      </div>
+    `;
+  }
+
+  // Generate button HTML
+  let buttonHtml = "";
+  if (button && button.url) {
+    const btnColor = button.color || themeColor;
+    buttonHtml = `
+      <div style="text-align: center; margin: 32px 0;">
+        <!--[if mso]>
+        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${button.url}" style="height:48px;v-text-anchor:middle;width:220px;" arcsize="17%" stroke="f" fillcolor="${btnColor}">
+          <w:anchorlock/>
+          <center style="color:#ffffff;font-family:sans-serif;font-size:15px;font-weight:bold;">${button.label}</center>
+        </v:roundrect>
+        <![endif]-->
+        <!--[if !mso]><!-->
+        <a href="${button.url}" style="background-color: ${btnColor}; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.06);">
+          ${button.label}
+        </a>
+        <!--<![endif]-->
+      </div>
+    `;
+  }
+
+  // Generate callout HTML
+  let calloutHtml = "";
+  if (callout && callout.text) {
+    calloutHtml = `
+      <div style="background-color: ${calloutBg}; border-left: 4px solid ${calloutBorder}; padding: 16px 20px; border-radius: 6px; margin: 24px 0; color: #1E293B; font-size: 15px; line-height: 1.6;">
+        ${callout.text}
+      </div>
+    `;
+  }
+
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="x-apple-disable-message-reformatting">
+      <title>${title}</title>
+      <!--[if mso]>
+      <noscript>
+        <xml>
+          <o:OfficeDocumentSettings>
+            <o:PixelsPerInch>96</o:PixelsPerInch>
+          </o:OfficeDocumentSettings>
+        </xml>
+      </noscript>
+      <![endif]-->
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+          margin: 0;
+          padding: 0;
+          width: 100% !important;
+          -webkit-text-size-adjust: 100%;
+          -ms-text-size-adjust: 100%;
+        }
+      </style>
+    </head>
+    <body style="background-color: #F8FAFC; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; margin: 0; padding: 0;">
+      <span style="display: none; max-height: 0px; overflow: hidden;">
+        ${preheader}
+      </span>
+      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #F8FAFC; padding: 24px 0;">
+        <tr>
+          <td align="center">
+            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);">
+              <!-- Top decorative accent line -->
+              <tr>
+                <td height="4" style="background-color: ${themeColor}; line-height: 4px; font-size: 0;">&nbsp;</td>
+              </tr>
+              <!-- Brand Header -->
+              <tr>
+                <td style="padding: 32px 32px 16px 32px; text-align: left;">
+                  <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                    <tr>
+                      <td>
+                        <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.15em; color: ${themeColor}; text-transform: uppercase; display: block; margin-bottom: 4px;">Project Delhi</span>
+                        <span style="font-size: 13px; color: #64748B; font-weight: 500;">Naksh Foundation Initiative</span>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <!-- Main Divider -->
+              <tr>
+                <td style="padding: 0 32px;">
+                  <hr style="border: 0; border-top: 1px solid #F1F5F9; margin: 0;">
+                </td>
+              </tr>
+              <!-- Email Body -->
+              <tr>
+                <td style="padding: 32px 32px 24px 32px; font-size: 15px; line-height: 1.625; color: #334155;">
+                  <h2 style="font-size: 20px; font-weight: 700; color: #1E293B; margin-top: 0; margin-bottom: 16px; line-height: 1.3;">
+                    ${title}
+                  </h2>
+                  ${contentHtml}
+                  ${calloutHtml}
+                  ${detailsHtml}
+                  ${buttonHtml}
+                </td>
+              </tr>
+              <!-- Footer Section -->
+              <tr>
+                <td style="padding: 0 32px 32px 32px;">
+                  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-top: 1px solid #F1F5F9; padding-top: 24px; text-align: center;">
+                    <tr>
+                      <td style="font-size: 12px; color: #64748B; line-height: 1.6;">
+                        <p style="margin: 0 0 6px 0; font-weight: 600; color: #475569;">Project Delhi &bull; Naksh Foundation</p>
+                        <p style="margin: 0 0 16px 0; font-size: 11px; color: #94A3B8;">A Cyber Safety & Community Initiative</p>
+                        <p style="margin: 0; font-size: 11px; color: #94A3B8;">This is an automated notification. Please do not reply directly to this email.</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+};
+
 const mailer = {
   // 1. Proposal Raised (Notify admin & proposer)
   sendProposalRaisedAlert: async (proposal) => {
     // Alert Admin
     await sendEmail({
       to: process.env.ADMIN_EMAIL || "admin@projectdelhi.org",
-      subject: `New Proposal Submitted: ${proposal.title}`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #8c2424; margin-top: 0;">New Proposal Pending Review</h2>
-          <p>A new campaign proposal has been submitted on Project Delhi and is pending review.</p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p><strong>Title:</strong> ${proposal.title}</p>
-          <p><strong>Category:</strong> ${proposal.category}</p>
-          <p><strong>Proposer:</strong> ${proposal.applicantName} (${proposal.email})</p>
-          <p><strong>Contact:</strong> ${proposal.phone}</p>
-          <p><strong>Address:</strong> ${proposal.address}, ${proposal.locality}, ${proposal.city} - ${proposal.pincode}</p>
-          <p><strong>Volunteers Needed:</strong> ${proposal.volunteersNeeded}</p>
-          <p><strong>Scheduled Event:</strong> ${proposal.eventDate} at ${proposal.eventTime}</p>
-          <p><strong>Description:</strong><br>${proposal.description}</p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p><a href="${CLIENT_URL}/volunteer-dashboard" style="background-color: #8c2424; color: white; padding: 10px 18px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Review Proposal</a></p>
-        </div>
-      `,
+      subject: `[Action Required] New Campaign Proposal Pending Review: ${proposal.title}`,
+      html: getHtmlTemplate({
+        title: "New Campaign Proposal Pending Review",
+        preheader: "A new campaign proposal has been submitted on Project Delhi and is pending moderation.",
+        contentHtml: `
+          <p>Dear Administrator,</p>
+          <p>A new campaign proposal has been submitted on Project Delhi and is currently pending review. Please review the campaign details below and take the necessary moderation action on your dashboard.</p>
+          <p><strong>Campaign Description:</strong></p>
+          <p style="white-space: pre-line; background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px 16px; border-radius: 6px; font-size: 14px; color: #475569;">${proposal.description}</p>
+        `,
+        details: [
+          { label: "Campaign Title", value: proposal.title },
+          { label: "Category", value: proposal.category },
+          { label: "Proposer Name", value: proposal.applicantName },
+          { label: "Email Address", value: proposal.email },
+          { label: "Contact Phone", value: proposal.phone },
+          { label: "Location/Address", value: `${proposal.address}, ${proposal.locality}, ${proposal.city} - ${proposal.pincode}` },
+          { label: "Volunteers Needed", value: proposal.volunteersNeeded },
+          { label: "Event Schedule", value: `${proposal.eventDate} at ${proposal.eventTime}` },
+        ],
+        button: {
+          label: "Review Proposal",
+          url: `${CLIENT_URL}/volunteer-dashboard`,
+        },
+      }),
     });
 
     // Send confirmation to proposer
     return sendEmail({
       to: proposal.email,
-      subject: `Proposal Received - Project Delhi`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #2e7d32; margin-top: 0;">We Received Your Proposal</h2>
+      subject: `We've Received Your Campaign Proposal: ${proposal.title}`,
+      html: getHtmlTemplate({
+        title: "We Received Your Proposal",
+        preheader: "Thank you for submitting your campaign proposal to Project Delhi.",
+        themeColor: "#8c2424",
+        contentHtml: `
           <p>Dear ${proposal.applicantName},</p>
-          <p>Thank you for submitting your proposal <strong>"${proposal.title}"</strong> to Project Delhi. Our team of moderators will review your campaign details shortly.</p>
-          <p>You will receive email notifications as the status of your proposal changes or if moderators ask for any clarifications.</p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p>Best regards,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
-        </div>
-      `,
+          <p>Thank you for submitting your campaign proposal <strong>"${proposal.title}"</strong> to Project Delhi. We appreciate your dedication to supporting our community.</p>
+          <p>Our team of moderators is currently reviewing your proposal. The validation process typically takes 24 to 48 hours. You will receive email notifications as the status of your proposal updates or if our moderators require any clarifications.</p>
+        `,
+        button: {
+          label: "Go to Proposer Dashboard",
+          url: `${CLIENT_URL}/dashboard`,
+        },
+      }),
     });
   },
 
@@ -147,21 +341,26 @@ const mailer = {
   sendInfoRequestedNotice: async (userEmail, applicantName, proposalTitle, query) => {
     return sendEmail({
       to: userEmail,
-      subject: `Information Requested: ${proposalTitle}`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #f57c00; margin-top: 0;">Clarification Needed for Your Proposal</h2>
+      subject: `Clarification Needed for Your Campaign: ${proposalTitle}`,
+      html: getHtmlTemplate({
+        title: "Clarification Needed for Your Proposal",
+        preheader: "A moderator has requested additional details or changes for your campaign proposal.",
+        themeColor: "#D97706", // Warning Accent
+        contentHtml: `
           <p>Dear ${applicantName},</p>
-          <p>A moderator has requested additional details or changes for your campaign proposal <strong>"${proposalTitle}"</strong>:</p>
-          <div style="background-color: #fff3e0; border-left: 4px solid #f57c00; padding: 12px 18px; font-style: italic; border-radius: 4px; margin: 20px 0;">
-            "${query}"
-          </div>
-          <p>Please log into your dashboard on Project Delhi, click on the proposal, and provide your response to proceed with the approval process.</p>
-          <p><a href="${CLIENT_URL}/dashboard" style="background-color: #f57c00; color: white; padding: 10px 18px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Respond to Request</a></p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p>Best regards,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
-        </div>
-      `,
+          <p>Our moderation team has reviewed your campaign proposal, <strong>"${proposalTitle}"</strong>, and requires additional information or revisions before it can be approved.</p>
+          <p>Please review the coordinator's request below, make the necessary updates on your dashboard, and resubmit.</p>
+        `,
+        callout: {
+          text: `<strong>Moderator's Request:</strong><br>"${query}"`,
+          type: "warning",
+        },
+        button: {
+          label: "Respond & Edit Proposal",
+          url: `${CLIENT_URL}/dashboard`,
+          color: "#D97706",
+        },
+      }),
     });
   },
 
@@ -169,18 +368,22 @@ const mailer = {
   sendProposalApprovedNotice: async (userEmail, applicantName, proposalTitle) => {
     return sendEmail({
       to: userEmail,
-      subject: `Your Proposal is Live - Project Delhi`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #2e7d32; margin-top: 0;">Your Proposal Has Been Approved</h2>
+      subject: `Congratulations! Your Campaign Proposal is Live: ${proposalTitle}`,
+      html: getHtmlTemplate({
+        title: "Your Campaign Proposal Has Been Approved",
+        preheader: "Great news! Your campaign proposal is live on Project Delhi.",
+        themeColor: "#16A34A", // Success Accent
+        contentHtml: `
           <p>Dear ${applicantName},</p>
-          <p>Great news! Your campaign proposal <strong>"${proposalTitle}"</strong> has been approved and is now officially live on the Project Delhi site.</p>
-          <p>Volunteers across Delhi can now browse, read about, and register to volunteer for your campaign.</p>
-          <p><a href="${CLIENT_URL}/browse" style="background-color: #2e7d32; color: white; padding: 10px 18px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Explore Campaigns</a></p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p>Thank you for contributing to our community,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
-        </div>
-      `,
+          <p>We are pleased to inform you that your campaign proposal <strong>"${proposalTitle}"</strong> has been approved and is now officially live on the Project Delhi site.</p>
+          <p>Volunteers across Delhi can now browse, read about, and register to support your campaign. We encourage you to share your campaign page with your network to boost volunteer participation.</p>
+        `,
+        button: {
+          label: "Explore Live Campaigns",
+          url: `${CLIENT_URL}/browse`,
+          color: "#16A34A",
+        },
+      }),
     });
   },
 
@@ -188,17 +391,21 @@ const mailer = {
   sendSubscriptionWelcome: async (subscriberEmail) => {
     return sendEmail({
       to: subscriberEmail,
-      subject: `Welcome to Project Delhi Updates`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #8c2424; margin-top: 0;">Thanks for Subscribing</h2>
+      subject: "Welcome to Project Delhi - Subscription Confirmed",
+      html: getHtmlTemplate({
+        title: "Thank You for Subscribing",
+        preheader: "Thank you for subscribing to our community and safety updates.",
+        themeColor: "#8c2424",
+        contentHtml: `
           <p>Hello,</p>
-          <p>You have successfully subscribed to newsletter updates from <strong>projectdelhi.org</strong>, a cyber safety and community initiative by Naksh Foundation.</p>
-          <p>We'll keep you posted about upcoming community cleanups, cyber awareness drives, new campaigns, and progress reports.</p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p>Best regards,<br><strong>Naksh Foundation Team</strong></p>
-        </div>
-      `,
+          <p>You have successfully subscribed to updates from <strong>Project Delhi</strong>, a community safety and developmental initiative powered by the Naksh Foundation.</p>
+          <p>We will keep you informed about upcoming community cleanup drives, cyber awareness workshops, educational programs, and key progress reports. Together, we can make our city cleaner, safer, and more resilient.</p>
+        `,
+        button: {
+          label: "Visit Project Delhi",
+          url: CLIENT_URL,
+        },
+      }),
     });
   },
 
@@ -207,39 +414,48 @@ const mailer = {
     // Notify Volunteer
     await sendEmail({
       to: volunteer.email,
-      subject: `Welcome to the Project Delhi Volunteer Pool`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #8c2424; margin-top: 0;">Welcome to the Team, ${volunteer.name}</h2>
-          <p>Thank you for joining our general volunteer pool. Your details are now registered in our database.</p>
-          <p>Whenever we organize cleanup drives, educational events, or cyber awareness programs in Delhi that match your preferred role (<strong>${volunteer.preferredRole}</strong>), we will reach out to you.</p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p><strong>Your Profile:</strong></p>
-          <ul>
-            <li><strong>Preferred Role:</strong> ${volunteer.preferredRole}</li>
-            <li><strong>Location:</strong> ${volunteer.location}</li>
-            <li><strong>Phone:</strong> ${volunteer.phone}</li>
-          </ul>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p>Warm regards,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
-        </div>
-      `,
+      subject: "Welcome to the Project Delhi Volunteer Network",
+      html: getHtmlTemplate({
+        title: `Welcome to the Team, ${volunteer.name}`,
+        preheader: "Thank you for joining our general volunteer pool.",
+        themeColor: "#8c2424",
+        contentHtml: `
+          <p>Dear ${volunteer.name},</p>
+          <p>Thank you for joining the general volunteer network for Project Delhi. Your profile has been successfully registered in our database.</p>
+          <p>Whenever we organize cleanup drives, educational events, or cyber safety programs in Delhi that match your interest and preferred role, we will reach out to you with details on how to participate.</p>
+        `,
+        details: [
+          { label: "Preferred Role", value: volunteer.preferredRole },
+          { label: "Location", value: volunteer.location },
+          { label: "Contact Phone", value: volunteer.phone },
+        ],
+        button: {
+          label: "Visit Volunteer Platform",
+          url: CLIENT_URL,
+        },
+      }),
     });
 
     // Alert Admin
     return sendEmail({
       to: process.env.ADMIN_EMAIL || "admin@projectdelhi.org",
-      subject: `New Volunteer Registered: ${volunteer.name}`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h3 style="margin-top: 0;">New Volunteer Added to Pool</h3>
-          <p><strong>Name:</strong> ${volunteer.name}</p>
-          <p><strong>Email:</strong> ${volunteer.email}</p>
-          <p><strong>Phone:</strong> ${volunteer.phone}</p>
-          <p><strong>Preferred Role:</strong> ${volunteer.preferredRole}</p>
-          <p><strong>Location:</strong> ${volunteer.location}</p>
-        </div>
-      `,
+      subject: `[New Registration] General Volunteer Joined Pool: ${volunteer.name}`,
+      html: getHtmlTemplate({
+        title: "New Volunteer Registered",
+        preheader: "A new general volunteer has joined the pool.",
+        themeColor: "#8c2424",
+        contentHtml: `
+          <p>Dear Administrator,</p>
+          <p>A new volunteer has registered in the general volunteer pool. Here are their details:</p>
+        `,
+        details: [
+          { label: "Name", value: volunteer.name },
+          { label: "Email Address", value: volunteer.email },
+          { label: "Phone Number", value: volunteer.phone },
+          { label: "Preferred Role", value: volunteer.preferredRole },
+          { label: "Preferred Location", value: volunteer.location },
+        ],
+      }),
     });
   },
 
@@ -248,65 +464,91 @@ const mailer = {
     // Notify Volunteer
     await sendEmail({
       to: appRecord.email,
-      subject: `Volunteering Application Received - ${taskTitle}`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #f57c00; margin-top: 0;">Application Received</h2>
+      subject: `Application Received: Volunteer Request for ${taskTitle}`,
+      html: getHtmlTemplate({
+        title: "Application Received",
+        preheader: "Your application to volunteer has been successfully received.",
+        themeColor: "#D97706", // Notification orange
+        contentHtml: `
           <p>Dear ${appRecord.name},</p>
           <p>Your application to volunteer for the campaign <strong>"${taskTitle}"</strong> has been successfully received.</p>
-          <p>Our moderators and the campaign organizer will review your details shortly. You will get another email notification as soon as a decision is made.</p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p>Best regards,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
-        </div>
-      `,
+          <p>The campaign coordinator and our moderation team are currently reviewing applicant profiles. You will receive an email update as soon as a selection decision is made.</p>
+        `,
+      }),
     });
 
     // Alert Admin / Moderator
     return sendEmail({
       to: process.env.ADMIN_EMAIL || "admin@projectdelhi.org",
-      subject: `New Volunteering Application for ${taskTitle}`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h3 style="margin-top: 0;">New Application for Campaign</h3>
-          <p><strong>Campaign:</strong> ${taskTitle}</p>
-          <p><strong>Applicant Name:</strong> ${appRecord.name}</p>
-          <p><strong>Email:</strong> ${appRecord.email}</p>
-          <p><strong>Phone:</strong> ${appRecord.phone}</p>
-          <p><strong>Reason/Experience:</strong><br>${appRecord.reason}</p>
-          <p><a href="${CLIENT_URL}/volunteer-dashboard">Go to Moderator Dashboard</a> to review.</p>
-        </div>
-      `,
+      subject: `[Review Needed] Volunteer Application for ${taskTitle}`,
+      html: getHtmlTemplate({
+        title: "New Volunteering Application",
+        preheader: "A new volunteer application is pending review.",
+        themeColor: "#8c2424",
+        contentHtml: `
+          <p>Dear Administrator,</p>
+          <p>A new volunteer application has been submitted for the campaign event: <strong>"${taskTitle}"</strong>.</p>
+        `,
+        details: [
+          { label: "Campaign Event", value: taskTitle },
+          { label: "Applicant Name", value: appRecord.name },
+          { label: "Email Address", value: appRecord.email },
+          { label: "Phone Number", value: appRecord.phone },
+        ],
+        callout: {
+          text: `<strong>Statement of Interest / Experience:</strong><br>${appRecord.reason}`,
+          type: "info",
+        },
+        button: {
+          label: "Review Application on Dashboard",
+          url: `${CLIENT_URL}/volunteer-dashboard`,
+        },
+      }),
     });
   },
 
   // 7. Volunteer Application Status Updated (Approved/Rejected)
   sendVolunteerAppStatusUpdate: async (appRecord, taskTitle, status, reason) => {
     const isApproved = status === "approved";
-    const statusColor = isApproved ? "#2e7d32" : "#c62828";
+    const statusColor = isApproved ? "#16A34A" : "#DC2626";
     const statusText = isApproved ? "Approved" : "Declined";
+
+    const contentHtml = isApproved
+      ? `<p>Dear ${appRecord.name},</p>
+         <p><strong>Congratulations! Your application to volunteer for the campaign "${taskTitle}" has been approved.</strong></p>
+         <p>We are excited to have you on board! The campaign organizer will get in touch with you shortly via phone or email to coordinate logistics, schedules, and instructions for the event day.</p>`
+      : `<p>Dear ${appRecord.name},</p>
+         <p>Thank you for your interest in volunteering for the campaign <strong>"${taskTitle}"</strong>.</p>
+         <p>After careful review of our current capacity and requirements, we regret to inform you that we are unable to accept your application for this specific campaign at this time.</p>`;
+
+    const callout = isApproved
+      ? null
+      : {
+          text: `<strong>Reason for decision:</strong><br>"${reason || "Slots are fully filled."}"`,
+          type: "danger",
+        };
+
+    const encourageText = isApproved
+      ? ""
+      : `<p>We deeply appreciate your support and encourage you to explore and apply for other upcoming campaign opportunities on our platform.</p>`;
 
     return sendEmail({
       to: appRecord.email,
-      subject: `Update on Volunteer Application - ${taskTitle}`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h2 style="color: ${statusColor}; margin-top: 0;">Application Status: ${statusText}</h2>
-          <p>Dear ${appRecord.name},</p>
-          <p>Your volunteering application for the campaign <strong>"${taskTitle}"</strong> has been reviewed.</p>
-          ${
-            isApproved
-              ? `<p><strong>Congratulations! Your application has been approved.</strong> The campaign organizer will get in touch with you shortly via phone or email with instructions for the event day.</p>`
-              : `<p>We regret to inform you that your application has been declined at this time.</p>
-                 <p><strong>Reason for decision:</strong></p>
-                 <div style="background-color: #ffebee; border-left: 4px solid #c62828; padding: 12px 18px; font-style: italic; border-radius: 4px; margin: 20px 0;">
-                   "${reason || "Slots are fully filled."}"
-                 </div>
-                 <p>We encourage you to apply for other campaigns on our platform.</p>`
-          }
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p>Thank you for your support,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
-        </div>
-      `,
+      subject: isApproved
+        ? `Confirmed: Your Volunteering Application for ${taskTitle} is Approved`
+        : `Update Regarding Your Volunteer Application: ${taskTitle}`,
+      html: getHtmlTemplate({
+        title: `Volunteer Application Status: ${statusText}`,
+        preheader: `An update is available on your volunteer application for ${taskTitle}.`,
+        themeColor: statusColor,
+        contentHtml: contentHtml + encourageText,
+        callout,
+        button: {
+          label: "View Volunteer Opportunities",
+          url: `${CLIENT_URL}/browse`,
+          color: statusColor,
+        },
+      }),
     });
   },
 
@@ -314,26 +556,27 @@ const mailer = {
   sendDonationReceipt: async (donorEmail, donorName, donationDetails) => {
     return sendEmail({
       to: donorEmail,
-      subject: `Thank You for Your Support - Naksh Foundation`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #8c2424; margin-top: 0;">Donation Acknowledgment</h2>
+      subject: "Donation Receipt & Heartfelt Thanks: Naksh Foundation",
+      html: getHtmlTemplate({
+        title: "Thank You for Your Generous Support",
+        preheader: "Thank you for your donation to the Naksh Foundation.",
+        themeColor: "#8c2424",
+        contentHtml: `
           <p>Dear ${donorName},</p>
-          <p>Thank you for your generous donation of <strong>INR ${donationDetails.amount}</strong> to Naksh Foundation.</p>
-          <p>Your contribution directly supports our community cleanups, cyber awareness programs, and education kits for under-resourced children in Delhi.</p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p><strong>Donation Receipt Details:</strong></p>
-          <ul>
-            <li><strong>Donor Name:</strong> ${donorName}</li>
-            <li><strong>Amount Paid:</strong> INR ${donationDetails.amount}</li>
-            <li><strong>Transaction Reference:</strong> ${donationDetails.txId || "N/A"}</li>
-            <li><strong>Date:</strong> ${new Date().toLocaleDateString("en-IN")}</li>
-          </ul>
-          <p style="font-size: 0.85rem; color: #666; font-style: italic;">Note: Your donation is tax-exempt under Section 80G of the Indian Income Tax Act. A formal receipt certificate will be sent to your address.</p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p>With deep gratitude,<br><strong>Naksh Foundation</strong><br>Project CyberShield / Project Delhi</p>
-        </div>
-      `,
+          <p>On behalf of the entire Naksh Foundation team, we want to express our deepest gratitude for your generous donation of <strong>INR ${donationDetails.amount}</strong>.</p>
+          <p>Your contribution directly supports our community cleanup drives, cyber safety awareness programs, and education kits for under-resourced children in Delhi. It is support like yours that drives real change in our society.</p>
+        `,
+        details: [
+          { label: "Donor Name", value: donorName },
+          { label: "Amount Contributed", value: `INR ${donationDetails.amount}` },
+          { label: "Transaction Reference", value: donationDetails.txId || "N/A" },
+          { label: "Receipt Date", value: new Date().toLocaleDateString("en-IN") },
+        ],
+        callout: {
+          text: "<strong>Tax Exemption Note:</strong> Your donation is tax-exempt under Section 80G of the Indian Income Tax Act. A formal certificate will be sent to your registered address once verification is finalized.",
+          type: "info",
+        },
+      }),
     });
   },
 
@@ -341,215 +584,241 @@ const mailer = {
   sendDonationReportAcknowledgement: async (donorEmail, donorName, amount, method, txId) => {
     return sendEmail({
       to: donorEmail,
-      subject: `Donation Report Received - Naksh Foundation`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #8c2424; margin-top: 0;">Donation Report Received</h2>
+      subject: "Donation Report Logged & Verification Pending: Naksh Foundation",
+      html: getHtmlTemplate({
+        title: "Donation Report Logged",
+        preheader: "We have received your manual donation report.",
+        themeColor: "#8c2424",
+        contentHtml: `
           <p>Dear ${donorName},</p>
-          <p>We have successfully received the payment details you submitted for your manual donation of <strong>INR ${amount}</strong> via ${method.toUpperCase()}.</p>
-          <p>Our team is currently verifying the transfer with reference transaction ID: <strong>${txId}</strong>. Once verified, your tax-exempt 80G receipt will be sent to this email address within 24 hours.</p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p>If you have any questions or made an error in the details, please reply to this email.</p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p>Thank you for supporting our community initiative,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
-        </div>
-      `,
+          <p>Thank you for reporting your recent manual donation of <strong>INR ${amount}</strong> via ${method.toUpperCase()}.</p>
+          <p>Our finance team is currently verifying the bank transfer with reference Transaction ID: <strong>${txId}</strong>. Once successfully validated, your formal tax-exempt 80G receipt certificate will be generated and emailed to you within 24 hours.</p>
+          <p>If you have any questions or need to correct any details, please feel free to reply to this email.</p>
+        `,
+      }),
     });
   },
 
-  // 9. General Partner Registered (Send to Partner & Admin)
+  // 10. General Partner Registered (Send to Partner & Admin)
   sendGeneralPartnerWelcome: async (partner) => {
     // Notify Partner
     await sendEmail({
       to: partner.email,
-      subject: `Welcome to the Project Delhi Partner Directory`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #8c2424; margin-top: 0;">Thank you for registering, ${partner.contactName}</h2>
-          <p>We are thrilled to receive your expression of interest to partner with Project Delhi. Your organization details have been saved in our directory.</p>
-          ${partner.taskTitle ? `<p>Your proposal to collaborate on the event <strong>${partner.taskTitle}</strong> has been submitted to the coordinators for review.</p>` : `<p>We will contact you with collaboration opportunities for our upcoming campaigns and initiatives.</p>`}
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p><strong>Organization Profile:</strong></p>
-          <ul>
-            <li><strong>Organization Name:</strong> ${partner.orgName}</li>
-            <li><strong>Type:</strong> ${partner.orgType}</li>
-            <li><strong>Designation:</strong> ${partner.designation}</li>
-            <li><strong>Location:</strong> ${partner.location}</li>
-            <li><strong>Phone:</strong> ${partner.phone}</li>
-            <li><strong>Collab Reason:</strong> ${partner.collabReason}</li>
-          </ul>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p>Warm regards,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
-        </div>
-      `,
+      subject: `Partnership Registration Confirmed: ${partner.orgName}`,
+      html: getHtmlTemplate({
+        title: "Partnership Registration Received",
+        preheader: "Thank you for registering with the Project Delhi Partner Directory.",
+        themeColor: "#8c2424",
+        contentHtml: `
+          <p>Dear ${partner.contactName},</p>
+          <p>We are thrilled to receive your expression of interest to partner with Project Delhi. Your organization's details have been successfully registered in our partnership database.</p>
+          ${
+            partner.taskTitle
+              ? `<p>Your proposal to collaborate on the event <strong>"${partner.taskTitle}"</strong> has been successfully submitted to the coordinators for review.</p>`
+              : `<p>We will review your profile and reach out to you with collaboration opportunities for our upcoming community and safety campaigns.</p>`
+          }
+        `,
+        details: [
+          { label: "Organization Name", value: partner.orgName },
+          { label: "Organization Type", value: partner.orgType },
+          { label: "Representative", value: `${partner.contactName} (${partner.designation})` },
+          { label: "Operating Location", value: partner.location },
+          { label: "Contact Phone", value: partner.phone },
+        ],
+        callout: {
+          text: `<strong>Collaboration Interest:</strong><br>${partner.collabReason}`,
+          type: "info",
+        },
+      }),
     });
 
     // Alert Admin
     return sendEmail({
       to: process.env.ADMIN_EMAIL || "admin@projectdelhi.org",
-      subject: `New Organization Registered: ${partner.orgName}`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h3 style="margin-top: 0;">New Organization Added to Pool</h3>
-          <p><strong>Org Name:</strong> ${partner.orgName}</p>
-          <p><strong>Type:</strong> ${partner.orgType}</p>
-          <p><strong>Contact Person:</strong> ${partner.contactName} (${partner.designation})</p>
-          <p><strong>Email:</strong> ${partner.email}</p>
-          <p><strong>Phone:</strong> ${partner.phone}</p>
-          <p><strong>Location:</strong> ${partner.location}</p>
-          <p><strong>Collab Proposal:</strong> ${partner.collabReason}</p>
-          ${partner.taskTitle ? `<p><strong>Applied for Event:</strong> ${partner.taskTitle} (${partner.taskId})</p>` : ""}
-        </div>
-      `,
+      subject: `[Partnership Request] New Organization Registered: ${partner.orgName}`,
+      html: getHtmlTemplate({
+        title: "New Organization Registered",
+        preheader: "A new organization has registered for partnership.",
+        themeColor: "#8c2424",
+        contentHtml: `
+          <p>Dear Administrator,</p>
+          <p>A new organization has registered in the partner directory. Here are the registration details:</p>
+        `,
+        details: [
+          { label: "Org Name", value: partner.orgName },
+          { label: "Type", value: partner.orgType },
+          { label: "Contact Person", value: `${partner.contactName} (${partner.designation})` },
+          { label: "Email Address", value: partner.email },
+          { label: "Phone Number", value: partner.phone },
+          { label: "Location", value: partner.location },
+          { label: "Target Event", value: partner.taskTitle ? `${partner.taskTitle} (${partner.taskId})` : "General Partner Pool" },
+        ],
+        callout: {
+          text: `<strong>Collaboration Proposal:</strong><br>${partner.collabReason}`,
+          type: "info",
+        },
+      }),
     });
   },
 
-  // 10. Password Reset Email (Send to User)
+  // 11. Password Reset Email (Send to User)
   sendPasswordResetEmail: async (email, name, resetLink) => {
     return sendEmail({
       to: email,
-      subject: `Reset Your Password - Project Delhi`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 30px; border-radius: 12px; background-color: #FAF8F5;">
-          <h2 style="color: #8c2424; margin-top: 0; font-size: 1.5rem; font-weight: bold; border-bottom: 2px solid #8c2424; padding-bottom: 10px;">Password Reset Request</h2>
+      subject: "Reset Your Project Delhi Password",
+      html: getHtmlTemplate({
+        title: "Password Reset Request",
+        preheader: "Click the link to reset your account password.",
+        themeColor: "#8c2424",
+        contentHtml: `
           <p>Dear ${name},</p>
-          <p>We received a request to reset the password for your account on Project Delhi. If you didn't make this request, you can safely ignore this email.</p>
-          <p>To reset your password, please click the button below. This link will expire in 1 hour:</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${resetLink}" style="background-color: #8c2424; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; font-size: 1rem; box-shadow: 0 4px 10px rgba(140, 36, 36, 0.2);">Reset Password</a>
-          </div>
-          <p style="font-size: 0.9rem; color: #666;">If the button above doesn't work, copy and paste the following URL into your web browser:</p>
-          <p style="word-break: break-all; font-size: 0.85rem; color: #8c2424;"><a href="${resetLink}">${resetLink}</a></p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p style="font-size: 0.85rem; color: #888;">Thank you,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
-        </div>
-      `,
+          <p>We received a request to reset the password for your account on Project Delhi. If you did not make this request, you can safely ignore this email; your account remains secure.</p>
+          <p>To choose a new password, please click the button below. For security, this link will automatically expire in 1 hour:</p>
+        `,
+        button: {
+          label: "Reset Password",
+          url: resetLink,
+        },
+        callout: {
+          text: `If the button above does not work, copy and paste the following URL into your web browser:<br><a href="${resetLink}" style="word-break: break-all; color: #8c2424;">${resetLink}</a>`,
+          type: "info",
+        },
+      }),
     });
   },
 
-  // 11. Proposal Deleted/Cancelled notice
+  // 12. Proposal Deleted/Cancelled notice
   sendProposalDeletedNotice: async (userEmail, applicantName, proposalTitle, reason, deletedBy) => {
     return sendEmail({
       to: userEmail,
-      subject: `Proposal Cancelled: ${proposalTitle}`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #c62828; margin-top: 0;">Proposal Cancelled & Deleted</h2>
+      subject: `Important Update: Campaign Proposal Cancelled - ${proposalTitle}`,
+      html: getHtmlTemplate({
+        title: "Campaign Proposal Cancelled",
+        preheader: "Your campaign proposal has been cancelled.",
+        themeColor: "#DC2626", // Danger Accent
+        contentHtml: `
           <p>Dear ${applicantName},</p>
-          <p>Your campaign proposal <strong>"${proposalTitle}"</strong> has been cancelled and deleted from Project Delhi by ${deletedBy}.</p>
-          <p><strong>Reason for cancellation:</strong></p>
-          <div style="background-color: #ffebee; border-left: 4px solid #c62828; padding: 12px 18px; font-style: italic; border-radius: 4px; margin: 20px 0;">
-            "${reason}"
-          </div>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p>Best regards,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
-        </div>
-      `,
+          <p>We are writing to notify you that your campaign proposal <strong>"${proposalTitle}"</strong> has been cancelled and removed from Project Delhi by ${deletedBy}.</p>
+        `,
+        callout: {
+          text: `<strong>Reason for cancellation:</strong><br>"${reason}"`,
+          type: "danger",
+        },
+      }),
     });
   },
 
-  // 12. Proposal Edited notice
+  // 13. Proposal Edited notice
   sendProposalEditedNotice: async (userEmail, applicantName, proposalTitle) => {
     return sendEmail({
       to: userEmail,
-      subject: `Proposal Updated - Project Delhi`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #2e7d32; margin-top: 0;">Proposal Edits Received</h2>
+      subject: `We've Received Your Proposal Revisions: ${proposalTitle}`,
+      html: getHtmlTemplate({
+        title: "Campaign Revisions Received",
+        preheader: "We have received the edits to your campaign proposal.",
+        themeColor: "#8c2424",
+        contentHtml: `
           <p>Dear ${applicantName},</p>
-          <p>Your proposal <strong>"${proposalTitle}"</strong> has been successfully updated with your recent edits.</p>
-          <p>Our coordinators/moderators will review the updated campaign details shortly.</p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p>Best regards,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
-        </div>
-      `,
+          <p>This email confirms that your revisions for the campaign proposal <strong>"${proposalTitle}"</strong> have been successfully received.</p>
+          <p>Our moderation team will review the updated campaign details. You will receive an email update as soon as the review is complete.</p>
+        `,
+      }),
     });
   },
 
-  // 13. Proposal Query Raised notice
+  // 14. Proposal Query Raised notice
   sendProposalQueryRaisedNotice: async (userEmail, applicantName, proposalTitle, action, reason) => {
     const actionText = action === "delete" ? "Delete / Cancel" : "Edit Details";
     return sendEmail({
       to: userEmail,
-      subject: `Revision Query Received: ${proposalTitle}`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #f57c00; margin-top: 0;">Revision Query Received</h2>
+      subject: `Update Request Logged for Campaign: ${proposalTitle}`,
+      html: getHtmlTemplate({
+        title: "Revision Query Acknowledged",
+        preheader: "We have logged your request to edit/cancel your proposal.",
+        themeColor: "#D97706", // Warning Accent
+        contentHtml: `
           <p>Dear ${applicantName},</p>
-          <p>We have successfully received your query requesting to <strong>${actionText}</strong> your live/verified proposal <strong>"${proposalTitle}"</strong>.</p>
-          <p><strong>Reason provided for request:</strong></p>
-          <div style="background-color: #fff3e0; border-left: 4px solid #f57c00; padding: 12px 18px; font-style: italic; border-radius: 4px; margin: 20px 0;">
-            "${reason}"
-          </div>
-          <p>A coordinator/moderator will review your request shortly. You will be notified by email once actions are taken.</p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p>Best regards,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
-        </div>
-      `,
+          <p>We have successfully received your query requesting to <strong>${actionText}</strong> your active campaign, <strong>"${proposalTitle}"</strong>.</p>
+          <p>A coordinator is reviewing your request and will follow up shortly. No further action is required from your end at this stage.</p>
+        `,
+        callout: {
+          text: `<strong>Reason provided for request:</strong><br>"${reason}"`,
+          type: "warning",
+        },
+      }),
     });
   },
 
-  // 14. Proposal Allow Edit permission notice
+  // 15. Proposal Allow Edit permission notice
   sendProposalAllowEditNotice: async (userEmail, applicantName, proposalTitle) => {
     return sendEmail({
       to: userEmail,
-      subject: `Edit Permission Granted: ${proposalTitle}`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #2e7d32; margin-top: 0;">Edit Permission Granted</h2>
+      subject: `Action Granted: You Can Now Edit Your Campaign - ${proposalTitle}`,
+      html: getHtmlTemplate({
+        title: "Edit Permission Granted",
+        preheader: "You can now edit your campaign details.",
+        themeColor: "#16A34A", // Success Accent
+        contentHtml: `
           <p>Dear ${applicantName},</p>
-          <p>An admin/moderator has reviewed your query and granted edit permissions for your proposal <strong>"${proposalTitle}"</strong>.</p>
+          <p>An administrator has reviewed your request and granted edit permissions for your campaign proposal <strong>"${proposalTitle}"</strong>.</p>
           <p>The "Edit" button is now active on your proposer dashboard. Please log in and submit your revisions.</p>
-          <p style="margin-top: 24px;"><a href="${CLIENT_URL}/dashboard" style="background-color: #2e7d32; color: white; padding: 10px 18px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Go to Dashboard</a></p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p>Best regards,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
-        </div>
-      `,
+        `,
+        button: {
+          label: "Go to Dashboard",
+          url: `${CLIENT_URL}/dashboard`,
+          color: "#16A34A",
+        },
+      }),
     });
   },
 
-  // 15. Volunteer application slot cancellation notice
+  // 16. Volunteer application slot cancellation notice
   sendVolunteerWithdrawNotice: async (userEmail, name, taskTitle, reason) => {
     return sendEmail({
       to: userEmail,
-      subject: `Volunteering Slot Cancelled: ${taskTitle}`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #c62828; margin-top: 0;">Volunteering Slot Cancelled</h2>
+      subject: `Volunteering Slot Withdrawal Confirmed: ${taskTitle}`,
+      html: getHtmlTemplate({
+        title: "Volunteering Slot Withdrawal Confirmed",
+        preheader: "Your volunteering slot withdrawal has been confirmed.",
+        themeColor: "#DC2626", // Danger Accent
+        contentHtml: `
           <p>Dear ${name},</p>
-          <p>We are writing to confirm that you have successfully withdrawn your volunteering request / cancelled your slot for the campaign event <strong>"${taskTitle}"</strong>.</p>
-          <p><strong>Reason for cancellation:</strong></p>
-          <div style="background-color: #ffebee; border-left: 4px solid #c62828; padding: 12px 18px; font-style: italic; border-radius: 4px; margin: 20px 0;">
-            "${reason || "Withdrawn by volunteer"}"
-          </div>
-          <p>If this was done by mistake, you can always go back to the Project Delhi platform and sign up again.</p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p>Best regards,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
-        </div>
-      `,
+          <p>This is to confirm that you have successfully withdrawn your volunteering request and cancelled your slot for the campaign event: <strong>"${taskTitle}"</strong>.</p>
+          <p>If you did this in error, or if your availability changes, you are welcome to sign up again on our platform at any time.</p>
+        `,
+        callout: {
+          text: `<strong>Reason for withdrawal:</strong><br>"${reason || "Withdrawn by volunteer"}"`,
+          type: "danger",
+        },
+        button: {
+          label: "Browse Campaigns",
+          url: `${CLIENT_URL}/browse`,
+          color: "#DC2626",
+        },
+      }),
     });
   },
 
-  // 16. Proposal Rejected (Send to Proposer)
+  // 17. Proposal Rejected (Send to Proposer)
   sendProposalRejectedNotice: async (userEmail, applicantName, proposalTitle, reason) => {
     return sendEmail({
       to: userEmail,
-      subject: `Proposal Declined - Project Delhi`,
-      html: `
-        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; border-radius: 8px;">
-          <h2 style="color: #c62828; margin-top: 0;">Proposal Update: Declined</h2>
+      subject: `Update Regarding Your Campaign Proposal: ${proposalTitle}`,
+      html: getHtmlTemplate({
+        title: "Proposal Update: Declined",
+        preheader: "Your campaign proposal has been reviewed.",
+        themeColor: "#DC2626", // Danger Accent
+        contentHtml: `
           <p>Dear ${applicantName},</p>
           <p>Thank you for submitting your campaign proposal <strong>"${proposalTitle}"</strong> to Project Delhi.</p>
-          <p>After reviewing the details, we regret to inform you that your proposal has been declined at this time.</p>
-          <p><strong>Reason for rejection:</strong></p>
-          <div style="background-color: #ffebee; border-left: 4px solid #c62828; padding: 12px 18px; font-style: italic; border-radius: 4px; margin: 20px 0;">
-            "${reason}"
-          </div>
-          <p>If you have any questions or would like to submit a revised proposal, please do not hesitate to contact us.</p>
-          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-          <p>Best regards,<br><strong>Project Delhi Team</strong><br>Naksh Foundation</p>
-        </div>
-      `,
+          <p>After careful consideration, our moderation team has decided to decline your proposal at this time.</p>
+          <p>If you have any questions, would like to discuss this feedback, or wish to submit a revised proposal, please do not hesitate to reach out to our team.</p>
+        `,
+        callout: {
+          text: `<strong>Moderator Feedback:</strong><br>"${reason}"`,
+          type: "danger",
+        },
+      }),
     });
   },
 };
