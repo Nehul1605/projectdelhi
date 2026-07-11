@@ -9,6 +9,19 @@ interface Props {
   addToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
 
+function formatTime12h(timeStr?: string): string {
+  if (!timeStr) return "";
+  const parts = timeStr.split(":");
+  if (parts.length < 2) return timeStr;
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1];
+  if (isNaN(hours)) return timeStr;
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+  return `${hours}:${minutes} ${ampm}`;
+}
+
 export default function TaskDetail({ addToast }: Props) {
   const { slug, id } = useParams<{ slug?: string; id?: string }>();
   const navigate = useNavigate();
@@ -73,7 +86,7 @@ export default function TaskDetail({ addToast }: Props) {
   useEffect(() => {
     if (showShareModal) {
       modalOpenedAt.current = Date.now();
-      QRCode.toDataURL(getEventUrl(), { margin: 1, width: 180 })
+      QRCode.toDataURL(getEventUrl(), { margin: 4, width: 180 })
         .then(url => setQrCodeUrl(url))
         .catch(err => console.error("Error generating QR code preview", err));
     }
@@ -332,57 +345,40 @@ export default function TaskDetail({ addToast }: Props) {
       // Date & Time
       ctx.font = "bold 15px sans-serif";
       ctx.fillStyle = "#f59e0b"; // Gold accent
-      ctx.fillText("📅 DATE & TIME", 80, boxY + 35);
+      ctx.fillText("📅 DATE & TIME:", 80, boxY + 50);
+      const dateTimeLabelWidth = ctx.measureText("📅 DATE & TIME: ").width;
       ctx.font = "500 15px sans-serif";
       ctx.fillStyle = "#ffffff";
-      ctx.fillText(`${task.eventDate} ${task.eventTime ? `at ${task.eventTime}` : ''}`, 80, boxY + 60);
+      ctx.fillText(`${task.eventDate}${task.eventTime ? ` at ${formatTime12h(task.eventTime)}` : ''}`, 80 + dateTimeLabelWidth, boxY + 50);
 
-      // Location
+      // Place
       ctx.font = "bold 15px sans-serif";
       ctx.fillStyle = "#f59e0b";
-      ctx.fillText("📍 LOCATION & ADDRESS", 80, boxY + 100);
+      ctx.fillText("📍 PLACE:", 80, boxY + 100);
+      const placeLabelWidth = ctx.measureText("📍 PLACE: ").width;
       ctx.font = "500 15px sans-serif";
       ctx.fillStyle = "#ffffff";
-      
-      const addressLine = `${task.address}, ${task.locality}`;
-      const addressWords = addressLine.split(" ");
-      let addrLine = "";
-      let addrLines = [];
-      for (let n = 0; n < addressWords.length; n++) {
-        let testL = addrLine + addressWords[n] + " ";
-        let testW = ctx.measureText(testL).width;
-        if (testW > 420 && n > 0) {
-          addrLines.push(addrLine);
-          addrLine = addressWords[n] + " ";
-        } else {
-          addrLine = testL;
-        }
-      }
-      addrLines.push(addrLine);
-      
-      ctx.fillText(addrLines[0].trim(), 80, boxY + 125);
-      if (addrLines[1]) {
-        ctx.fillText(addrLines[1].trim(), 80, boxY + 150);
-      }
+      ctx.fillText(`${task.locality}`, 80 + placeLabelWidth, boxY + 100);
 
       // Volunteers count
       ctx.font = "bold 15px sans-serif";
       ctx.fillStyle = "#f59e0b";
-      ctx.fillText("👥 TARGET VOLUNTEERS", 80, boxY + 180);
+      ctx.fillText("👥 REQUIRED VOLUNTEERS:", 80, boxY + 150);
+      const volLabelWidth = ctx.measureText("👥 REQUIRED VOLUNTEERS: ").width;
       ctx.font = "500 15px sans-serif";
       ctx.fillStyle = "#ffffff";
-      ctx.fillText(`${task.volunteersNeeded} volunteers needed (Join the drive!)`, 270, boxY + 180);
+      ctx.fillText(`${task.volunteersNeeded} Volunteers`, 80 + volLabelWidth, boxY + 150);
 
       // Call To Action Footer
       ctx.textAlign = "center";
       ctx.font = "bold 14px sans-serif";
       ctx.fillStyle = "#FAF8F5";
-      ctx.fillText("Scan QR or register online to join us:", 300, boxY + 230);
+      ctx.fillText("Scan QR or register online to join us", 300, boxY + 230);
 
       // Generate and draw QR Code
       try {
         const qrDataUrl = await QRCode.toDataURL(getEventUrl(), {
-          margin: 1,
+          margin: 4,
           width: 180,
           color: {
             dark: "#180a0a",
@@ -425,7 +421,7 @@ export default function TaskDetail({ addToast }: Props) {
       
       ctx.font = "bold 15px sans-serif";
       ctx.fillStyle = "#f59e0b";
-      const displayUrl = "projectdelhi.org" + window.location.pathname;
+      const displayUrl = "projectdelhi.org";
       ctx.fillText(displayUrl, 300, boxY + 355);
 
       // Save Canvas to Image
@@ -451,7 +447,7 @@ export default function TaskDetail({ addToast }: Props) {
 
 Campaign Initiative: ${title}
 Category: ${catData.label}
-${task?.status === "approved" || task?.status === "completed" ? "Date & Time" : "Proposed Date & Time"}: ${task?.eventDate} ${task?.eventTime ? `at ${task.eventTime}` : ""}
+${task?.status === "approved" || task?.status === "completed" ? "Date & Time" : "Proposed Date & Time"}: ${task?.eventDate} ${task?.eventTime ? `at ${formatTime12h(task.eventTime)}` : ""}
 Location: ${task?.address}, ${task?.locality}
 Volunteers Needed: ${task?.volunteersNeeded}
 
@@ -946,7 +942,7 @@ Learn details and register here: ${eventUrl}`;
 
 Campaign Initiative: ${task.title}
 Category: ${catData.label}
-${task.status === "approved" || task.status === "completed" ? "Date & Time" : "Proposed Date & Time"}: ${task.eventDate} ${task.eventTime ? `at ${task.eventTime}` : ""}
+${task.status === "approved" || task.status === "completed" ? "Date & Time" : "Proposed Date & Time"}: ${task.eventDate} ${task.eventTime ? `at ${formatTime12h(task.eventTime)}` : ""}
 Location: ${task.address}, ${task.locality}
 Volunteers Needed: ${task.volunteersNeeded}
 
@@ -1027,9 +1023,9 @@ Learn details and register here: ${window.location.href}`;
                         textAlign: 'left'
                       }}
                     >
-                      <div><span style={{ color: '#f59e0b', fontWeight: 700 }}>📅 DATE:</span> {task.eventDate}</div>
+                      <div><span style={{ color: '#f59e0b', fontWeight: 700 }}>📅 DATE & TIME:</span> {task.eventDate} {task.eventTime ? `at ${formatTime12h(task.eventTime)}` : ''}</div>
                       <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}><span style={{ color: '#f59e0b', fontWeight: 700 }}>📍 PLACE:</span> <span>{task.locality}</span></div>
-                      <div><span style={{ color: '#f59e0b', fontWeight: 700 }}>👥 TARGET:</span> {task.volunteersNeeded} Volunteers</div>
+                      <div><span style={{ color: '#f59e0b', fontWeight: 700 }}>👥 REQUIRED VOLUNTEERS:</span> {task.volunteersNeeded} Volunteers</div>
                     </div>
 
                     {/* Footer */}
