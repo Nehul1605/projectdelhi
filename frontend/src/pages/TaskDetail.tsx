@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getTaskById, getTaskBySlug, slugify, addVolunteerApp, getCurrentUser, registerGeneralPartner, getFeaturedTasks, getApprovedTasks } from '../store';
 import { CATEGORY_META } from '../types';
 import { Share2, Copy, X } from 'lucide-react';
+import QRCode from 'qrcode';
 
 interface Props {
   addToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
@@ -15,6 +16,8 @@ export default function TaskDetail({ addToast }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [showPartnerModal, setShowPartnerModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const modalOpenedAt = useRef<number>(0);
   const [partnerForm, setPartnerForm] = useState({
     orgName: "",
     orgType: "",
@@ -59,6 +62,22 @@ export default function TaskDetail({ addToast }: Props) {
       }));
     }
   }, [currentUser]);
+
+  const getEventUrl = () => {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return `https://projectdelhi.org${window.location.pathname}`;
+    }
+    return window.location.href;
+  };
+
+  useEffect(() => {
+    if (showShareModal) {
+      modalOpenedAt.current = Date.now();
+      QRCode.toDataURL(getEventUrl(), { margin: 1, width: 180 })
+        .then(url => setQrCodeUrl(url))
+        .catch(err => console.error("Error generating QR code preview", err));
+    }
+  }, [showShareModal]);
 
   if (!task) {
     return (
@@ -137,198 +156,289 @@ export default function TaskDetail({ addToast }: Props) {
     }
   };
 
-  const downloadPoster = () => {
+  const downloadPoster = async () => {
     if (!task) return;
 
-    const canvas = document.createElement("canvas");
-    canvas.width = 600;
-    canvas.height = 800;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    // Guard against accidental double-clicks from parent button
+    if (Date.now() - modalOpenedAt.current < 400) {
+      return;
+    }
 
-    // Draw Background Gradient
-    const gradient = ctx.createLinearGradient(0, 0, 0, 800);
-    gradient.addColorStop(0, "#8c2424"); // Primary Burgundy
-    gradient.addColorStop(0.5, "#4c1212"); // Dark Burgundy
-    gradient.addColorStop(1, "#180a0a"); // Off-black
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 600, 800);
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 600;
+      canvas.height = 800;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
 
-    // Subtle background design circles
-    ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
-    ctx.beginPath();
-    ctx.arc(100, 100, 200, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(500, 700, 250, 0, Math.PI * 2);
-    ctx.fill();
+      // Draw Background Gradient
+      const gradient = ctx.createLinearGradient(0, 0, 0, 800);
+      gradient.addColorStop(0, "#8c2424"); // Primary Burgundy
+      gradient.addColorStop(0.5, "#4c1212"); // Dark Burgundy
+      gradient.addColorStop(1, "#180a0a"); // Off-black
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 600, 800);
 
-    // Top branding header
-    ctx.font = "bold 14px sans-serif";
-    ctx.fillStyle = "#FAF8F5";
-    ctx.textAlign = "center";
-    ctx.fillText("NAKSH FOUNDATION PRESENTS", 300, 60);
+      // Subtle background design circles
+      ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
+      ctx.beginPath();
+      ctx.arc(100, 100, 200, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(500, 700, 250, 0, Math.PI * 2);
+      ctx.fill();
 
-    ctx.font = "800 24px sans-serif";
-    ctx.fillStyle = "#f59e0b"; // Gold color
-    ctx.fillText("PROJECT DELHI", 300, 95);
+      // Draw Project Logo (circular with border and background)
+      try {
+        const logoImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = (e) => reject(e);
+          img.src = `${window.location.origin}/logo.png`;
+        });
 
-    // Decorative line
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(150, 120);
-    ctx.lineTo(450, 120);
-    ctx.stroke();
+        const logoX = 300;
+        const logoY = 60;
+        const logoRadius = 25;
 
-    // Category Emoji & Tag
-    const catData = CATEGORY_META[task.category] || { emoji: "🌿", label: "Campaign" };
-    ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
-    const badgeText = `${catData.emoji} ${catData.label.toUpperCase()}`;
-    ctx.font = "bold 12px sans-serif";
-    const textWidth = ctx.measureText(badgeText).width;
-    
-    // Draw badge rounded background manually
-    const rx = 300 - (textWidth + 24) / 2;
-    const ry = 145;
-    const rw = textWidth + 24;
-    const rh = 28;
-    const radius = 14;
-    ctx.beginPath();
-    ctx.moveTo(rx + radius, ry);
-    ctx.lineTo(rx + rw - radius, ry);
-    ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + radius);
-    ctx.lineTo(rx + rw, ry + rh - radius);
-    ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - radius, ry + rh);
-    ctx.lineTo(rx + radius, ry + rh);
-    ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - radius);
-    ctx.lineTo(rx, ry + radius);
-    ctx.quadraticCurveTo(rx, ry, rx + radius, ry);
-    ctx.closePath();
-    ctx.fill();
+        // Draw white background circle for logo
+        ctx.fillStyle = "#FAF8F5";
+        ctx.beginPath();
+        ctx.arc(logoX, logoY, logoRadius, 0, Math.PI * 2);
+        ctx.fill();
 
-    ctx.fillStyle = "#FAF8F5";
-    ctx.fillText(badgeText, 300, 163);
+        // Draw circular logo image
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(logoX, logoY, logoRadius - 1, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(logoImg, logoX - logoRadius, logoY - logoRadius, logoRadius * 2, logoRadius * 2);
+        ctx.restore();
 
-    // Event Title (multi-line handling)
-    ctx.font = "800 32px sans-serif";
-    ctx.fillStyle = "#ffffff";
-    ctx.textAlign = "center";
-    
-    const words = task.title.split(" ");
-    let line = "";
-    let lines = [];
-    const maxWidth = 500;
-    const lineHeight = 42;
-
-    for (let n = 0; n < words.length; n++) {
-      let testLine = line + words[n] + " ";
-      let metrics = ctx.measureText(testLine);
-      let testWidth = metrics.width;
-      if (testWidth > maxWidth && n > 0) {
-        lines.push(line);
-        line = words[n] + " ";
-      } else {
-        line = testLine;
+        // Draw elegant gold border ring
+        ctx.strokeStyle = "#f59e0b"; // Gold accent
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(logoX, logoY, logoRadius, 0, Math.PI * 2);
+        ctx.stroke();
+      } catch (err) {
+        console.warn("Failed to load logo for poster:", err);
       }
-    }
-    lines.push(line);
 
-    let startY = 220;
-    for (let i = 0; i < lines.length; i++) {
-      ctx.fillText(lines[i].trim(), 300, startY + (i * lineHeight));
-    }
+      // Top branding header
+      ctx.font = "bold 14px sans-serif";
+      ctx.fillStyle = "#FAF8F5";
+      ctx.textAlign = "center";
+      ctx.fillText("NAKSH FOUNDATION PRESENTS", 300, 105);
 
-    // Translucent Details Box
-    const boxY = startY + (lines.length * lineHeight) + 20;
-    ctx.fillStyle = "rgba(255, 255, 255, 0.07)";
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-    ctx.lineWidth = 1;
-    
-    const bx = 50;
-    const by = boxY;
-    const bw = 500;
-    const bh = 240;
-    const br = 16;
-    ctx.beginPath();
-    ctx.moveTo(bx + br, by);
-    ctx.lineTo(bx + bw - br, by);
-    ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + br);
-    ctx.lineTo(bx + bw, by + bh - br);
-    ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - br, by + bh);
-    ctx.lineTo(bx + br, by + bh);
-    ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - br);
-    ctx.lineTo(bx, by + br);
-    ctx.quadraticCurveTo(bx, by, bx + br, by);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+      ctx.font = "800 24px sans-serif";
+      ctx.fillStyle = "#f59e0b"; // Gold color
+      ctx.fillText("PROJECT DELHI", 300, 130);
 
-    // Box Contents
-    ctx.textAlign = "left";
-    
-    // Date & Time
-    ctx.font = "bold 15px sans-serif";
-    ctx.fillStyle = "#f59e0b"; // Gold accent
-    ctx.fillText("📅 DATE & TIME", 80, boxY + 45);
-    ctx.font = "500 15px sans-serif";
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(`${task.eventDate} ${task.eventTime ? `at ${task.eventTime}` : ''}`, 80, boxY + 70);
+      // Decorative line
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(150, 145);
+      ctx.lineTo(450, 145);
+      ctx.stroke();
 
-    // Location
-    ctx.font = "bold 15px sans-serif";
-    ctx.fillStyle = "#f59e0b";
-    ctx.fillText("📍 LOCATION & ADDRESS", 80, boxY + 115);
-    ctx.font = "500 15px sans-serif";
-    ctx.fillStyle = "#ffffff";
-    
-    const addressLine = `${task.address}, ${task.locality}`;
-    const addressWords = addressLine.split(" ");
-    let addrLine = "";
-    let addrLines = [];
-    for (let n = 0; n < addressWords.length; n++) {
-      let testL = addrLine + addressWords[n] + " ";
-      let testW = ctx.measureText(testL).width;
-      if (testW > 420 && n > 0) {
-        addrLines.push(addrLine);
-        addrLine = addressWords[n] + " ";
-      } else {
-        addrLine = testL;
+      // Category Emoji & Tag
+      const catData = CATEGORY_META[task.category] || { emoji: "🌿", label: "Campaign" };
+      ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+      const badgeText = `${catData.emoji} ${catData.label.toUpperCase()}`;
+      ctx.font = "bold 12px sans-serif";
+      const textWidth = ctx.measureText(badgeText).width;
+      
+      // Draw badge rounded background manually
+      const rx = 300 - (textWidth + 24) / 2;
+      const ry = 160;
+      const rw = textWidth + 24;
+      const rh = 28;
+      const radius = 14;
+      ctx.beginPath();
+      ctx.moveTo(rx + radius, ry);
+      ctx.lineTo(rx + rw - radius, ry);
+      ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + radius);
+      ctx.lineTo(rx + rw, ry + rh - radius);
+      ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - radius, ry + rh);
+      ctx.lineTo(rx + radius, ry + rh);
+      ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - radius);
+      ctx.lineTo(rx, ry + radius);
+      ctx.quadraticCurveTo(rx, ry, rx + radius, ry);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "#FAF8F5";
+      ctx.fillText(badgeText, 300, 178);
+
+      // Event Title (multi-line handling)
+      ctx.font = "800 28px sans-serif";
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      
+      const words = task.title.split(" ");
+      let line = "";
+      let lines = [];
+      const maxWidth = 500;
+      const lineHeight = 36;
+
+      for (let n = 0; n < words.length; n++) {
+        let testLine = line + words[n] + " ";
+        let metrics = ctx.measureText(testLine);
+        let testWidth = metrics.width;
+        if (testWidth > maxWidth && n > 0) {
+          lines.push(line);
+          line = words[n] + " ";
+        } else {
+          line = testLine;
+        }
       }
+      lines.push(line);
+
+      let startY = 225;
+      for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(lines[i].trim(), 300, startY + (i * lineHeight));
+      }
+
+      // Translucent Details Box
+      const boxY = startY + (lines.length * lineHeight) + 15;
+      ctx.fillStyle = "rgba(255, 255, 255, 0.07)";
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+      ctx.lineWidth = 1;
+      
+      const bx = 50;
+      const by = boxY;
+      const bw = 500;
+      const bh = 200;
+      const br = 16;
+      ctx.beginPath();
+      ctx.moveTo(bx + br, by);
+      ctx.lineTo(bx + bw - br, by);
+      ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + br);
+      ctx.lineTo(bx + bw, by + bh - br);
+      ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - br, by + bh);
+      ctx.lineTo(bx + br, by + bh);
+      ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - br);
+      ctx.lineTo(bx, by + br);
+      ctx.quadraticCurveTo(bx, by, bx + br, by);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Box Contents
+      ctx.textAlign = "left";
+      
+      // Date & Time
+      ctx.font = "bold 15px sans-serif";
+      ctx.fillStyle = "#f59e0b"; // Gold accent
+      ctx.fillText("📅 DATE & TIME", 80, boxY + 35);
+      ctx.font = "500 15px sans-serif";
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(`${task.eventDate} ${task.eventTime ? `at ${task.eventTime}` : ''}`, 80, boxY + 60);
+
+      // Location
+      ctx.font = "bold 15px sans-serif";
+      ctx.fillStyle = "#f59e0b";
+      ctx.fillText("📍 LOCATION & ADDRESS", 80, boxY + 100);
+      ctx.font = "500 15px sans-serif";
+      ctx.fillStyle = "#ffffff";
+      
+      const addressLine = `${task.address}, ${task.locality}`;
+      const addressWords = addressLine.split(" ");
+      let addrLine = "";
+      let addrLines = [];
+      for (let n = 0; n < addressWords.length; n++) {
+        let testL = addrLine + addressWords[n] + " ";
+        let testW = ctx.measureText(testL).width;
+        if (testW > 420 && n > 0) {
+          addrLines.push(addrLine);
+          addrLine = addressWords[n] + " ";
+        } else {
+          addrLine = testL;
+        }
+      }
+      addrLines.push(addrLine);
+      
+      ctx.fillText(addrLines[0].trim(), 80, boxY + 125);
+      if (addrLines[1]) {
+        ctx.fillText(addrLines[1].trim(), 80, boxY + 150);
+      }
+
+      // Volunteers count
+      ctx.font = "bold 15px sans-serif";
+      ctx.fillStyle = "#f59e0b";
+      ctx.fillText("👥 TARGET VOLUNTEERS", 80, boxY + 180);
+      ctx.font = "500 15px sans-serif";
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(`${task.volunteersNeeded} volunteers needed (Join the drive!)`, 270, boxY + 180);
+
+      // Call To Action Footer
+      ctx.textAlign = "center";
+      ctx.font = "bold 14px sans-serif";
+      ctx.fillStyle = "#FAF8F5";
+      ctx.fillText("Scan QR or register online to join us:", 300, boxY + 230);
+
+      // Generate and draw QR Code
+      try {
+        const qrDataUrl = await QRCode.toDataURL(getEventUrl(), {
+          margin: 1,
+          width: 180,
+          color: {
+            dark: "#180a0a",
+            light: "#FAF8F5"
+          }
+        });
+
+        const qrImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = (e) => reject(e);
+          img.src = qrDataUrl;
+        });
+
+        // Draw rounded white container for QR code
+        ctx.fillStyle = "#FAF8F5";
+        ctx.beginPath();
+        const qrX = 255;
+        const qrY = boxY + 245;
+        const qrW = 90;
+        const qrH = 90;
+        const qrR = 10;
+        ctx.moveTo(qrX + qrR, qrY);
+        ctx.lineTo(qrX + qrW - qrR, qrY);
+        ctx.quadraticCurveTo(qrX + qrW, qrY, qrX + qrW, qrY + qrR);
+        ctx.lineTo(qrX + qrW, qrY + qrH - qrR);
+        ctx.quadraticCurveTo(qrX + qrW, qrY + qrH, qrX + qrW - qrR, qrY + qrH);
+        ctx.lineTo(qrX + qrR, qrY + qrH);
+        ctx.quadraticCurveTo(qrX, qrY + qrH, qrX, qrY + qrH - qrR);
+        ctx.lineTo(qrX, qrY + qrR);
+        ctx.quadraticCurveTo(qrX, qrY, qrX + qrR, qrY);
+        ctx.closePath();
+        ctx.fill();
+
+        // Draw QR code image centered inside
+        ctx.drawImage(qrImg, qrX + 5, qrY + 5, qrW - 10, qrH - 10);
+      } catch (err) {
+        console.error("Failed to generate/draw QR Code for poster:", err);
+      }
+      
+      ctx.font = "bold 15px sans-serif";
+      ctx.fillStyle = "#f59e0b";
+      const displayUrl = "projectdelhi.org" + window.location.pathname;
+      ctx.fillText(displayUrl, 300, boxY + 355);
+
+      // Save Canvas to Image
+      const url = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${slugify(task.title)}-campaign-invite.png`;
+      link.click();
+      addToast("Campaign invite poster downloaded successfully! Share it on Instagram Stories or status.", "success");
+    } catch (err) {
+      console.error("Error generating poster:", err);
+      addToast("Failed to generate poster image. Please try sharing the link directly.", "error");
     }
-    addrLines.push(addrLine);
-    
-    ctx.fillText(addrLines[0].trim(), 80, boxY + 140);
-    if (addrLines[1]) {
-      ctx.fillText(addrLines[1].trim(), 80, boxY + 165);
-    }
-
-    // Volunteers count
-    ctx.font = "bold 15px sans-serif";
-    ctx.fillStyle = "#f59e0b";
-    ctx.fillText("👥 TARGET VOLUNTEERS", 80, boxY + 210);
-    ctx.font = "500 15px sans-serif";
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(`${task.volunteersNeeded} volunteers needed (Join the drive!)`, 270, boxY + 210);
-
-    // Call To Action Footer
-    ctx.textAlign = "center";
-    ctx.font = "bold 14px sans-serif";
-    ctx.fillStyle = "#FAF8F5";
-    ctx.fillText("Scan QR or register online to join us:", 300, boxY + 285);
-    
-    ctx.font = "bold 15px sans-serif";
-    ctx.fillStyle = "#f59e0b";
-    const displayUrl = window.location.host + window.location.pathname;
-    ctx.fillText(displayUrl, 300, boxY + 310);
-
-    // Save Canvas to Image
-    const url = canvas.toDataURL("image/png");
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${slugify(task.title)}-campaign-invite.png`;
-    link.click();
-    addToast("Campaign invite poster downloaded successfully! Share it on Instagram Stories or status.", "success");
   };
 
   const handleShareClick = () => {
@@ -883,9 +993,12 @@ Learn details and register here: ${window.location.href}`;
                     <div style={{ position: 'absolute', top: '-50px', left: '-50px', width: '150px', height: '150px', borderRadius: '50%', background: 'rgba(255,255,255,0.02)' }} />
                     
                     {/* Top Branding */}
-                    <div style={{ textAlign: 'center', zIndex: 2 }}>
-                      <div style={{ fontSize: '0.55rem', fontWeight: 600, letterSpacing: '1px', opacity: 0.8, marginBottom: '2px' }}>NAKSH FOUNDATION PRESENTS</div>
-                      <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#f59e0b', letterSpacing: '0.5px' }}>PROJECT DELHI</div>
+                    <div style={{ textAlign: 'center', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#FAF8F5', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1.5px solid #f59e0b', marginBottom: '4px', overflow: 'hidden' }}>
+                        <img src="/logo.png" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                      </div>
+                      <div style={{ fontSize: '0.52rem', fontWeight: 600, letterSpacing: '1px', opacity: 0.8, marginBottom: '2px' }}>NAKSH FOUNDATION PRESENTS</div>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#f59e0b', letterSpacing: '0.5px' }}>PROJECT DELHI</div>
                       <div style={{ width: '60px', height: '1px', background: 'rgba(255,255,255,0.2)', margin: '4px auto 0' }} />
                     </div>
 
@@ -920,9 +1033,16 @@ Learn details and register here: ${window.location.href}`;
                     </div>
 
                     {/* Footer */}
-                    <div style={{ textAlign: 'center', fontSize: '0.5rem', opacity: 0.8, zIndex: 2 }}>
-                      <div>Register online to join us</div>
-                      <div style={{ fontWeight: 600, color: '#f59e0b', marginTop: '2px', wordBreak: 'break-all' }}>projectdelhi.org</div>
+                    <div style={{ textAlign: 'center', fontSize: '0.45rem', opacity: 0.8, zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                      <div>Scan QR or register online to join us</div>
+                      {qrCodeUrl ? (
+                        <div style={{ background: '#FAF8F5', padding: '3px', borderRadius: '4px', display: 'inline-flex' }}>
+                          <img src={qrCodeUrl} alt="QR Code" style={{ width: '38px', height: '38px', display: 'block' }} />
+                        </div>
+                      ) : (
+                        <div style={{ width: '38px', height: '38px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px' }} />
+                      )}
+                      <div style={{ fontWeight: 600, color: '#f59e0b', wordBreak: 'break-all' }}>projectdelhi.org</div>
                     </div>
                   </div>
 
