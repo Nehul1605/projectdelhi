@@ -367,7 +367,7 @@ export default function TaskDetail({ addToast }: Props) {
       const volLabelWidth = ctx.measureText("👥 REQUIRED VOLUNTEERS: ").width;
       ctx.font = "500 15px sans-serif";
       ctx.fillStyle = "#ffffff";
-      ctx.fillText(`${task.volunteersNeeded} Volunteers`, 80 + volLabelWidth, boxY + 150);
+      ctx.fillText(`${task.volunteersNeeded}`, 80 + volLabelWidth, boxY + 150);
 
       // Call To Action Footer
       ctx.textAlign = "center";
@@ -1025,7 +1025,7 @@ Learn details and register here: ${window.location.href}`;
                     >
                       <div><span style={{ color: '#f59e0b', fontWeight: 700 }}>📅 DATE & TIME:</span> {task.eventDate} {task.eventTime ? `at ${formatTime12h(task.eventTime)}` : ''}</div>
                       <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}><span style={{ color: '#f59e0b', fontWeight: 700 }}>📍 PLACE:</span> <span>{task.locality}</span></div>
-                      <div><span style={{ color: '#f59e0b', fontWeight: 700 }}>👥 REQUIRED VOLUNTEERS:</span> {task.volunteersNeeded} Volunteers</div>
+                      <div><span style={{ color: '#f59e0b', fontWeight: 700 }}>👥 REQUIRED VOLUNTEERS:</span> {task.volunteersNeeded}</div>
                     </div>
 
                     {/* Footer */}
