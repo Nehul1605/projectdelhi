@@ -438,36 +438,7 @@ export default function TaskDetail({ addToast }: Props) {
   };
 
   const handleShareClick = () => {
-    const eventUrl = window.location.href;
-    const title = task?.title || "Community Initiative";
-    const catData = CATEGORY_META[task?.category || ''] || { label: 'Community Initiative' };
-
-    // Professional share text with clean layout (no excessive emojis)
-    const shareText = `PROJECT DELHI CAMPAIGN INVITE
-
-Campaign Initiative: ${title}
-Category: ${catData.label}
-${task?.status === "approved" || task?.status === "completed" ? "Date & Time" : "Proposed Date & Time"}: ${task?.eventDate} ${task?.eventTime ? `at ${formatTime12h(task.eventTime)}` : ""}
-Location: ${task?.address}, ${task?.locality}
-Volunteers Needed: ${task?.volunteersNeeded}
-
-Learn details and register here: ${eventUrl}`;
-
-    if (navigator.share) {
-      navigator.share({
-        title: title,
-        text: shareText,
-        url: eventUrl,
-      })
-      .then(() => addToast("Successfully shared event!", "success"))
-      .catch((error) => {
-        if (error.name !== "AbortError") {
-          setShowShareModal(true);
-        }
-      });
-    } else {
-      setShowShareModal(true);
-    }
+    setShowShareModal(true);
   };
 
   return (
@@ -1131,6 +1102,42 @@ Learn details and register here: ${window.location.href}`;
                       >
                         <span style={{ fontSize: '1.2rem' }}>🐦</span> Share on Twitter / X
                       </a>
+
+                      {/* Native Share button (if supported by device browser) */}
+                      {typeof navigator !== 'undefined' && navigator.share && (
+                        <button
+                          onClick={() => {
+                            navigator.share({
+                              title: task.title,
+                              text: shareText,
+                              url: window.location.href,
+                            })
+                            .then(() => addToast("Successfully shared event!", "success"))
+                            .catch((err) => {
+                              if (err.name !== 'AbortError') {
+                                console.error("Native share failed", err);
+                              }
+                            });
+                          }}
+                          className="btn btn-outline"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '12px',
+                            padding: '12px 16px',
+                            borderRadius: '8px',
+                            fontWeight: 600,
+                            fontSize: '0.92rem',
+                            border: '1.5px solid #8c2424',
+                            background: '#8c242410',
+                            color: '#8c2424',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <span style={{ fontSize: '1.2rem' }}>📱</span> Share via Phone Apps
+                        </button>
+                      )}
 
                       {/* Copy Link Button */}
                       <button
