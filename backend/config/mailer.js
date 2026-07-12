@@ -552,7 +552,7 @@ const mailer = {
         callout,
         button: {
           label: "View Volunteer Opportunities",
-          url: `${CLIENT_URL}/browse`,
+          url: `${CLIENT_URL}/initiatives`,
           color: statusColor,
         },
       }),
