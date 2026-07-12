@@ -46,6 +46,13 @@ if (!process.env.RESEND_API_KEY && hasValidConfig()) {
 }
 
 const sendEmail = async ({ to, subject, html }) => {
+  // Prevent sending administrative alert emails if disabled in config
+  const adminEmail = (process.env.ADMIN_EMAIL || "hello@projectdelhi.org").toLowerCase();
+  if (to.toLowerCase() === adminEmail && process.env.DISABLE_ADMIN_ALERTS === "true") {
+    console.log(`[MAILER] Admin alert skipped (DISABLE_ADMIN_ALERTS is enabled): "${subject}"`);
+    return true;
+  }
+
   if (!hasValidConfig()) {
     console.log(
       `\n--- [MAILER MOCK LOG] ---\nTo: ${to}\nSubject: ${subject}\nBody: ${html}\n-----------------------\n`

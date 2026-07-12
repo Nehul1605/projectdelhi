@@ -92,6 +92,31 @@ export default function TaskDetail({ addToast }: Props) {
     }
   }, [showShareModal]);
 
+  useEffect(() => {
+    if (!currentUser) return;
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get('action');
+    if (action === 'join') {
+      setShowModal(true);
+      // Clean up search parameters from the URL
+      params.delete('action');
+      const newSearch = params.toString();
+      navigate({
+        pathname: window.location.pathname,
+        search: newSearch ? `?${newSearch}` : '',
+      }, { replace: true });
+    } else if (action === 'partner') {
+      setShowPartnerModal(true);
+      // Clean up search parameters from the URL
+      params.delete('action');
+      const newSearch = params.toString();
+      navigate({
+        pathname: window.location.pathname,
+        search: newSearch ? `?${newSearch}` : '',
+      }, { replace: true });
+    }
+  }, [currentUser, navigate]);
+
   if (!task) {
     return (
       <div className="container page-section">
@@ -106,6 +131,9 @@ export default function TaskDetail({ addToast }: Props) {
 
   const cat = CATEGORY_META[task.category];
   const progress = Math.min((task.volunteers.length / task.volunteersNeeded) * 100, 100);
+  const isAlreadyJoined = !!currentUser && task.volunteers.some(
+    (v) => (v.email || "").toLowerCase().trim() === currentUser.email.toLowerCase().trim()
+  );
   const eventDate = new Date(task.eventDate).toLocaleDateString('en-IN', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
@@ -538,14 +566,14 @@ export default function TaskDetail({ addToast }: Props) {
               onClick={() => {
                 if (!currentUser) {
                   addToast("Please log in first to volunteer for events.", "info");
-                  navigate("/login", { state: { from: `/initiatives/${slugify(task.title)}` } });
+                  navigate("/login", { state: { from: `${window.location.pathname}?action=join` } });
                   return;
                 }
                 setShowModal(true);
               }}
-              disabled={task.volunteers.length >= task.volunteersNeeded}
+              disabled={task.volunteers.length >= task.volunteersNeeded || isAlreadyJoined}
             >
-              Join as Volunteer
+              {isAlreadyJoined ? "Already Joined" : "Join as Volunteer"}
             </button>
             <button
               className="btn btn-primary"
@@ -559,7 +587,7 @@ export default function TaskDetail({ addToast }: Props) {
               onClick={() => {
                 if (!currentUser) {
                   addToast("Please log in first to partner for events.", "info");
-                  navigate("/login", { state: { from: `/initiatives/${slugify(task.title)}` } });
+                  navigate("/login", { state: { from: `${window.location.pathname}?action=partner` } });
                   return;
                 }
                 setShowPartnerModal(true);

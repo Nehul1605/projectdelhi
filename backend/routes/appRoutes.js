@@ -22,6 +22,29 @@ router.get("/volunteer-apps", async (req, res) => {
 // Submit volunteer application
 router.post("/volunteer-apps", async (req, res) => {
   try {
+    const email = (req.body.email || "").toLowerCase().trim();
+    const taskId = req.body.taskId;
+
+    // 1. Check if they have already submitted a pending/processed application
+    const existingApp = await VolunteerApp.findOne({
+      taskId,
+      email: { $regex: new RegExp(`^${email}$`, "i") }
+    });
+    if (existingApp) {
+      return res.status(400).json({ 
+        error: existingApp.status === "approved" 
+          ? "You are already registered as a volunteer for this event!" 
+          : "You have already submitted a volunteer application for this event!" 
+      });
+    }
+
+    // 2. Check if they are already in the approved volunteers list of the task
+    const Task = require("../models/Task");
+    const task = await Task.findOne({ id: taskId });
+    if (task && task.volunteers.some(v => (v.email || "").toLowerCase().trim() === email)) {
+      return res.status(400).json({ error: "You are already registered as a volunteer for this event!" });
+    }
+
     const newApp = new VolunteerApp({
       ...req.body,
       name: toTitleCase(req.body.name),
