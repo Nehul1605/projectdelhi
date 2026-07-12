@@ -56,9 +56,7 @@ router.post("/volunteer-apps", async (req, res) => {
     });
     await newApp.save();
 
-    // Fetch task details to get title for the email
-    const Task = require("../models/Task");
-    const task = await Task.findOne({ id: newApp.taskId });
+    // Use already fetched task details to get title for the email
     const taskTitle = task ? task.title : "Community Initiative";
 
     // Send application receipt and alert admin
