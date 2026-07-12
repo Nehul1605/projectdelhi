@@ -387,7 +387,7 @@ const mailer = {
         `,
         button: {
           label: "Explore Live Campaigns",
-          url: `${CLIENT_URL}/browse`,
+          url: `${CLIENT_URL}/initiatives`,
           color: "#16A34A",
         },
       }),
@@ -799,7 +799,7 @@ const mailer = {
         },
         button: {
           label: "Browse Campaigns",
-          url: `${CLIENT_URL}/browse`,
+          url: `${CLIENT_URL}/initiatives`,
           color: "#DC2626",
         },
       }),
