@@ -92,7 +92,7 @@ projectdelhi/
    SMTP_USER=your_smtp_auth_user
    SMTP_PASS=your_smtp_auth_password
    SMTP_FROM="Project Delhi <team@projectdelhi.org>"
-   ADMIN_EMAIL=team@projectdelhi.org
+   ADMIN_EMAIL=hello@projectdelhi.org
    ```
 4. Start the server:
    ```bash

@@ -100,6 +100,15 @@ export default function App() {
     setShowVolunteerModal(true);
   };
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("join-volunteer") === "true") {
+      openVolunteerModal();
+      const newUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+  }, [location.search]);
+
   const handleVolunteerRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!volForm.name || !volForm.email || !volForm.phone || !volForm.preferredRole || !volForm.location) {
@@ -110,6 +119,7 @@ export default function App() {
     const res = await registerGeneralVolunteer(volForm);
     setVolSubmitting(false);
     if (res.success) {
+      localStorage.setItem("project_delhi_volunteer_prompt_dismissed", "true");
       addToast(res.message, "success");
       setShowVolunteerModal(false);
       setVolForm({

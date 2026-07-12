@@ -1475,3 +1475,141 @@ select {
     transform: translateY(0);
   }
 }
+
+/* Volunteer Promo Slide-in Card */
+.volunteer-promo-card {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 340px;
+  background: rgba(28, 11, 11, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: #fff;
+  font-family: inherit;
+  animation: slideInUpPromo 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.volunteer-promo-card.dismissing {
+  animation: slideOutDownPromo 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideInUpPromo {
+  from {
+    transform: translateY(100px) scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutDownPromo {
+  from {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100px) scale(0.9);
+    opacity: 0;
+  }
+}
+
+.volunteer-promo-card h4 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 750;
+  color: #f59e0b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.volunteer-promo-card p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.volunteer-promo-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.volunteer-promo-btn-primary {
+  background: #8c2424;
+  border: 1px solid #8c2424;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.volunteer-promo-btn-primary:hover {
+  background: #a93232;
+  border-color: #a93232;
+  transform: translateY(-1px);
+}
+
+.volunteer-promo-btn-secondary {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.volunteer-promo-btn-secondary:hover {
+  color: #fff;
+}
+
+.volunteer-promo-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.volunteer-promo-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 480px) {
+  .volunteer-promo-card {
+    bottom: 16px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+  }
+}

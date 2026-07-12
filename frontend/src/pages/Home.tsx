@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getApprovedTasks, getStats } from "../store";
 import TaskCard from "../components/TaskCard";
 import {
@@ -12,12 +12,56 @@ import {
   HeartHandshake,
   Leaf,
   BookOpen,
+  X,
 } from "lucide-react";
 
 export default function Home() {
   const tasks = getApprovedTasks().slice(0, 4);
   const stats = getStats();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const [promoState, setPromoState] = useState<"hidden" | "showing" | "dismissing">("hidden");
+  const transitionTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleDismissPromo = () => {
+    setPromoState("dismissing");
+    if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+    transitionTimerRef.current = setTimeout(() => {
+      setPromoState("hidden");
+    }, 400);
+  };
+
+  const handleRegisterPromo = () => {
+    setPromoState("dismissing");
+    if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+    transitionTimerRef.current = setTimeout(() => {
+      setPromoState("hidden");
+      navigate("/?join-volunteer=true");
+    }, 400);
+  };
+
+  useEffect(() => {
+    const showTimer = setTimeout(() => {
+      setPromoState("showing");
+    }, 1500); // 1.5 seconds delay
+    return () => clearTimeout(showTimer);
+  }, []);
+
+  useEffect(() => {
+    if (promoState === "showing") {
+      const autoDismissTimer = setTimeout(() => {
+        handleDismissPromo();
+      }, 7000); //  7 seconds auto-dismiss
+      return () => clearTimeout(autoDismissTimer);
+    }
+  }, [promoState]);
+
+  useEffect(() => {
+    return () => {
+      if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     let targetId = "";
@@ -109,6 +153,39 @@ export default function Home() {
               }}
             >
               <Globe size={20} /> Explore Campaigns
+            </Link>
+          </div>
+
+          <div style={{ marginTop: "20px", display: "flex", justifyContent: "center", alignItems: "center" }}>
+            <Link
+              to="/?join-volunteer=true"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                color: "#ffffff",
+                fontSize: "0.95rem",
+                fontWeight: 600,
+                textDecoration: "none",
+                background: "rgba(140, 36, 36, 0.85)", // Theme Burgundy
+                padding: "10px 20px",
+                borderRadius: "30px",
+                border: "1.5px solid #f59e0b", // Gold Accent Border
+                boxShadow: "0 6px 16px rgba(0, 0, 0, 0.3)",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#8c2424"; // Solid Burgundy
+                e.currentTarget.style.borderColor = "#f59e0b";
+                e.currentTarget.style.transform = "translateY(-1px)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(140, 36, 36, 0.85)";
+                e.currentTarget.style.borderColor = "#f59e0b";
+                e.currentTarget.style.transform = "translateY(0)";
+              }}
+            >
+              🤝 Want to volunteer? Register in our General Pool
             </Link>
           </div>
         </div>
@@ -407,6 +484,30 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {promoState !== "hidden" && (
+        <div className={`volunteer-promo-card ${promoState === "dismissing" ? "dismissing" : ""}`}>
+          <button 
+            className="volunteer-promo-close" 
+            onClick={handleDismissPromo}
+            aria-label="Close"
+          >
+            <X size={16} />
+          </button>
+          <h4>🤝 Make an Impact in Delhi</h4>
+          <p>
+            Join our active community of general volunteers to get notified about upcoming clean-up drives, plantation drives, and local civic campaigns.
+          </p>
+          <div className="volunteer-promo-actions">
+            <button className="volunteer-promo-btn-primary" onClick={handleRegisterPromo}>
+              Register as Volunteer
+            </button>
+            <button className="volunteer-promo-btn-secondary" onClick={handleDismissPromo}>
+              Maybe Later
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

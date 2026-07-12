@@ -288,7 +288,7 @@ const mailer = {
   sendProposalRaisedAlert: async (proposal) => {
     // Alert Admin
     await sendEmail({
-      to: process.env.ADMIN_EMAIL || "admin@projectdelhi.org",
+      to: process.env.ADMIN_EMAIL || "hello@projectdelhi.org",
       subject: `[Action Required] New Campaign Proposal Pending Review: ${proposal.title}`,
       html: getHtmlTemplate({
         title: "New Campaign Proposal Pending Review",
@@ -438,7 +438,7 @@ const mailer = {
 
     // Alert Admin
     return sendEmail({
-      to: process.env.ADMIN_EMAIL || "admin@projectdelhi.org",
+      to: process.env.ADMIN_EMAIL || "hello@projectdelhi.org",
       subject: `[New Registration] General Volunteer Joined Pool: ${volunteer.name}`,
       html: getHtmlTemplate({
         title: "New Volunteer Registered",
@@ -479,7 +479,7 @@ const mailer = {
 
     // Alert Admin / Moderator
     return sendEmail({
-      to: process.env.ADMIN_EMAIL || "admin@projectdelhi.org",
+      to: process.env.ADMIN_EMAIL || "hello@projectdelhi.org",
       subject: `[Review Needed] Volunteer Application for ${taskTitle}`,
       html: getHtmlTemplate({
         title: "New Volunteering Application",
@@ -634,7 +634,7 @@ const mailer = {
 
     // Alert Admin
     return sendEmail({
-      to: process.env.ADMIN_EMAIL || "admin@projectdelhi.org",
+      to: process.env.ADMIN_EMAIL || "hello@projectdelhi.org",
       subject: `[Partnership Request] New Organization Registered: ${partner.orgName}`,
       html: getHtmlTemplate({
         title: "New Organization Registered",
