@@ -46,10 +46,19 @@ if (!process.env.RESEND_API_KEY && hasValidConfig()) {
 }
 
 const sendEmail = async ({ to, subject, html }) => {
-  // Prevent sending administrative alert emails if disabled in config
+  // Prevent sending administrative alert emails if disabled in config (defaults to disabled unless explicitly set to 'false')
   const adminEmail = (process.env.ADMIN_EMAIL || "hello@projectdelhi.org").toLowerCase();
-  if (to.toLowerCase() === adminEmail && process.env.DISABLE_ADMIN_ALERTS === "true") {
-    console.log(`[MAILER] Admin alert skipped (DISABLE_ADMIN_ALERTS is enabled): "${subject}"`);
+  const recipient = to.toLowerCase();
+  const shouldDisable = process.env.DISABLE_ADMIN_ALERTS !== "false";
+
+  if (
+    shouldDisable &&
+    (recipient.includes(adminEmail) ||
+      recipient.includes("hello@projectdelhi.org") ||
+      recipient.includes("admin@projectdelhi.org") ||
+      recipient.includes("team@projectdelhi.org"))
+  ) {
+    console.log(`[MAILER] Admin alert to ${to} skipped (disabled by default or configuration): "${subject}"`);
     return true;
   }
 
