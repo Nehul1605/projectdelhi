@@ -922,8 +922,13 @@ export default function Admin({ addToast }: Props) {
 
       {tab === "registry" && (
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h3 style={{ margin: 0 }}>General Volunteer Registry</h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <h3 style={{ margin: 0 }}>General Volunteer Registry</h3>
+              <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", background: "rgba(0,0,0,0.04)", padding: "2px 8px", borderRadius: "12px", marginLeft: "4px" }}>
+                ↔️ Scroll horizontally to see more columns
+              </span>
+            </div>
             <button
               className="btn btn-outline btn-sm"
               onClick={() => {
@@ -958,7 +963,7 @@ export default function Admin({ addToast }: Props) {
               <p>No general volunteers found in the registry yet.</p>
             </div>
           ) : (
-            <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-light)", borderRadius: "12px", boxShadow: "var(--shadow)", padding: 0, overflow: "hidden", overflowX: "auto" }}>
+            <div className="table-scroll-wrapper" style={{ background: "var(--bg-card)", border: "1px solid var(--border-light)", borderRadius: "12px", boxShadow: "var(--shadow)", padding: 0, overflow: "hidden", overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", minWidth: "900px" }}>
                 <thead>
                   <tr style={{ background: "rgba(0,0,0,0.02)", borderBottom: "1px solid var(--border-light)" }}>
@@ -997,8 +1002,11 @@ export default function Admin({ addToast }: Props) {
       {tab === "partners" && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <h3 style={{ margin: 0 }}>General Partner Directory</h3>
+              <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", background: "rgba(0,0,0,0.04)", padding: "2px 8px", borderRadius: "12px", marginLeft: "4px" }}>
+                ↔️ Scroll horizontally to see more columns
+              </span>
               <select
                 value={partnerStatusFilter}
                 onChange={(e) => setPartnerStatusFilter(e.target.value)}
@@ -1047,7 +1055,7 @@ export default function Admin({ addToast }: Props) {
               <p>No partner organizations match the selected filter.</p>
             </div>
           ) : (
-            <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-light)", borderRadius: "12px", boxShadow: "var(--shadow)", padding: 0, overflow: "hidden", overflowX: "auto" }}>
+            <div className="table-scroll-wrapper" style={{ background: "var(--bg-card)", border: "1px solid var(--border-light)", borderRadius: "12px", boxShadow: "var(--shadow)", padding: 0, overflow: "hidden", overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", minWidth: "1600px" }}>
                 <thead>
                   <tr style={{ background: "rgba(0,0,0,0.02)", borderBottom: "1px solid var(--border-light)" }}>
@@ -1170,8 +1178,11 @@ export default function Admin({ addToast }: Props) {
       {tab === "donations" && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <h3 style={{ margin: 0 }}>Donation Reports</h3>
+              <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", background: "rgba(0,0,0,0.04)", padding: "2px 8px", borderRadius: "12px", marginLeft: "4px" }}>
+                ↔️ Scroll horizontally to see more columns
+              </span>
               <select
                 value={donationStatusFilter}
                 onChange={(e) => setDonationStatusFilter(e.target.value)}
@@ -1219,7 +1230,7 @@ export default function Admin({ addToast }: Props) {
               <p>No manual donation reports match the selected filter.</p>
             </div>
           ) : (
-            <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-light)", borderRadius: "12px", boxShadow: "var(--shadow)", padding: 0, overflow: "hidden", overflowX: "auto" }}>
+            <div className="table-scroll-wrapper" style={{ background: "var(--bg-card)", border: "1px solid var(--border-light)", borderRadius: "12px", boxShadow: "var(--shadow)", padding: 0, overflow: "hidden", overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", minWidth: "1100px" }}>
                 <thead>
                   <tr style={{ background: "rgba(0,0,0,0.02)", borderBottom: "1px solid var(--border-light)" }}>

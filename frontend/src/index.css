@@ -1698,3 +1698,21 @@ select {
   display: block;
 }
 
+/* Custom visible horizontal scrollbars for admin tables */
+.table-scroll-wrapper::-webkit-scrollbar {
+  height: 8px !important;
+  display: block !important;
+}
+.table-scroll-wrapper::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-radius: 4px !important;
+}
+.table-scroll-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(140, 36, 36, 0.25) !important;
+  border-radius: 4px !important;
+  border: 1px solid transparent !important;
+}
+.table-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 36, 36, 0.45) !important;
+}
+
