@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { TaskRequest, CATEGORY_META } from '../types';
 import { slugify } from '../store';
+import { stripHtml } from './RichTextEditor';
 
 export default function TaskCard({ task }: { task: TaskRequest }) {
   const navigate = useNavigate();
@@ -25,8 +26,9 @@ export default function TaskCard({ task }: { task: TaskRequest }) {
     }
   }
 
-  // Safe description fallback and truncation
-  const descText = (task.shortDescription || task.description || 'Join this local civic initiative to help improve public areas and drive measurable social impact across the capital.').trim();
+  // Safe description fallback, html stripping, and truncation
+  const rawDesc = task.shortDescription || task.description || 'Join this local civic initiative to help improve public areas and drive measurable social impact across the capital.';
+  const descText = stripHtml(rawDesc).trim();
   const truncatedDesc = descText.length > 140 ? descText.slice(0, 140) + '...' : descText;
 
   return (

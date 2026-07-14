@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getTaskById, getTaskBySlug, slugify, addVolunteerApp, getCurrentUser, registerGeneralPartner, getFeaturedTasks, getApprovedTasks } from '../store';
 import { CATEGORY_META } from '../types';
+import { RichTextDisplay } from '../components/RichTextEditor';
 import { Share2, Copy, X } from 'lucide-react';
 import QRCode from 'qrcode';
 
@@ -495,14 +496,14 @@ export default function TaskDetail({ addToast }: Props) {
         {/* Description */}
         <div className="card" style={{ marginBottom: 24 }}>
           {task.shortDescription && (
-            <p style={{ color: 'var(--text)', fontSize: '1.05rem', fontWeight: 500, lineHeight: 1.6, marginBottom: 16 }}>
-              {task.shortDescription}
-            </p>
+            <div style={{ color: 'var(--text)', fontSize: '1.05rem', fontWeight: 500, lineHeight: 1.6, marginBottom: 16 }}>
+              <RichTextDisplay content={task.shortDescription} />
+            </div>
           )}
           <h3 style={{ marginBottom: 12, fontSize: '1rem' }}>About This Initiative</h3>
-          <p style={{ color: 'var(--text-secondary)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
-            {task.description}
-          </p>
+          <div style={{ color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+            <RichTextDisplay content={task.description} />
+          </div>
         </div>
 
         {/* Info Grid */}

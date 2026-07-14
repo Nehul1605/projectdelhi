@@ -8,6 +8,7 @@ import { TaskCategory, ApplicantType, CATEGORY_META } from "../types";
 import { Search, MapPin, Loader2 } from "lucide-react";
 import debounce from "lodash/debounce";
 import ImageCropper from "../components/ImageCropper";
+import { RichTextEditor } from "../components/RichTextEditor";
 
 // Fix Leaflet marker icon issue
 import markerIcon from "leaflet/dist/images/marker-icon.png";
@@ -191,6 +192,21 @@ export default function Submit({ addToast }: Props) {
     setSubmitting(true);
     const fd = new FormData(e.currentTarget);
     const get = (k: string) => ((fd.get(k) as string) || "").trim();
+
+    // Verify rich text fields are not empty
+    const shortClean = (fd.get("shortDescription") as string || "").replace(/<[^>]*>/g, "").trim();
+    const descClean = (fd.get("description") as string || "").replace(/<[^>]*>/g, "").trim();
+
+    if (!shortClean) {
+      addToast("Short Description is required.", "error");
+      setSubmitting(false);
+      return;
+    }
+    if (!descClean) {
+      addToast("Detailed Description is required.", "error");
+      setSubmitting(false);
+      return;
+    }
 
     const code = pincode.trim();
     if (!code.startsWith("11")) {
@@ -428,38 +444,30 @@ export default function Submit({ addToast }: Props) {
             <label htmlFor="shortDescription">
               Short Description <span className="required">*</span>
             </label>
-            <input
-              type="text"
-              name="shortDescription"
-              id="shortDescription"
-              required
-              maxLength={200}
+            <RichTextEditor
               value={shortDescText}
-              onChange={(e) => setShortDescText(e.target.value)}
+              onChange={setShortDescText}
+              maxLength={200}
               placeholder="A brief tagline of your initiative (max 200 characters)"
+              id="shortDescription"
+              name="shortDescription"
+              rows={2}
             />
-            <div style={{ display: "flex", justifyContent: "flex-end", fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "4px" }}>
-              <span>{shortDescText.length} / 200 characters</span>
-            </div>
           </div>
 
           <div className="form-group">
             <label htmlFor="description">
               Detailed Description <span className="required">*</span>
             </label>
-            <textarea
-              name="description"
-              id="description"
-              required
-              rows={6}
-              maxLength={1500}
+            <RichTextEditor
               value={descText}
-              onChange={(e) => setDescText(e.target.value)}
+              onChange={setDescText}
+              maxLength={1500}
               placeholder="Explain the what, where, and why of your initiative (max 1500 characters)"
+              id="description"
+              name="description"
+              rows={6}
             />
-            <div style={{ display: "flex", justifyContent: "flex-end", fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "4px" }}>
-              <span>{descText.length} / 1500 characters</span>
-            </div>
           </div>
 
           <div className="form-row">

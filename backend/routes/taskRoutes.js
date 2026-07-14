@@ -16,8 +16,6 @@ const sanitizeTaskData = (data) => {
   if (sanitized.locality) sanitized.locality = toTitleCase(sanitized.locality);
   if (sanitized.city) sanitized.city = toTitleCase(sanitized.city);
   if (sanitized.address) sanitized.address = toSentenceCase(sanitized.address);
-  if (sanitized.shortDescription) sanitized.shortDescription = toSentenceCase(sanitized.shortDescription);
-  if (sanitized.description) sanitized.description = toSentenceCase(sanitized.description);
   return sanitized;
 };
 

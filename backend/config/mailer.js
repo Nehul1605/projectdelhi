@@ -187,7 +187,7 @@ const getHtmlTemplate = ({
         </v:roundrect>
         <![endif]-->
         <!--[if !mso]><!-->
-        <a href="${button.url}" style="background-color: ${btnColor}; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.06);">
+        <a href="${button.url}" target="_blank" rel="noopener noreferrer" style="background-color: ${btnColor}; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; font-size: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.06);">
           ${button.label}
         </a>
         <!--<![endif]-->
@@ -696,7 +696,7 @@ const mailer = {
           url: resetLink,
         },
         callout: {
-          text: `If the button above does not work, copy and paste the following URL into your web browser:<br><a href="${resetLink}" style="word-break: break-all; color: #8c2424;">${resetLink}</a>`,
+          text: `If the button above does not work, copy and paste the following URL into your web browser:<br><a href="${resetLink}" target="_blank" rel="noopener noreferrer" style="word-break: break-all; color: #8c2424;">${resetLink}</a>`,
           type: "info",
         },
       }),

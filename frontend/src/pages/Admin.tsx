@@ -22,6 +22,7 @@ import {
   updateTaskFeatured,
 } from "../store";
 import ImageCropper from "../components/ImageCropper";
+import { RichTextEditor, RichTextDisplay, stripHtml } from "../components/RichTextEditor";
 import {
   CATEGORY_META,
   TaskRequest,
@@ -41,6 +42,10 @@ export default function Admin({ addToast }: Props) {
     ApplicationStatus | "all"
   >("all");
   const [, setRefresh] = useState(0);
+  const [campaignStatusFilter, setCampaignStatusFilter] = useState<string>("all");
+  const [appEventFilter, setAppEventFilter] = useState<string>("all");
+  const [donationStatusFilter, setDonationStatusFilter] = useState<string>("all");
+  const [partnerStatusFilter, setPartnerStatusFilter] = useState<string>("all");
   const [subscribers, setSubscribers] = useState<string[]>([]);
   const [generalVolunteers, setGeneralVolunteers] = useState<GeneralVolunteer[]>([]);
   const [generalPartners, setGeneralPartners] = useState<GeneralPartner[]>([]);
@@ -100,6 +105,18 @@ export default function Admin({ addToast }: Props) {
   const handleSaveEditProposal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProposal) return;
+
+    const shortClean = editShortDescription.replace(/<[^>]*>/g, "").trim();
+    const descClean = editDescription.replace(/<[^>]*>/g, "").trim();
+
+    if (!shortClean) {
+      addToast("Short Description is required.", "error");
+      return;
+    }
+    if (!descClean) {
+      addToast("Detailed Description is required.", "error");
+      return;
+    }
 
     if (!editPincode.trim().startsWith("11")) {
       addToast("Not a Delhi pincode. This platform only supports Delhi initiatives.", "error");
@@ -282,10 +299,9 @@ export default function Admin({ addToast }: Props) {
     URL.revokeObjectURL(url);
   };
 
-  const filteredApps =
-    appStatusFilter === "all"
-      ? volunteerApps
-      : volunteerApps.filter((app) => app.status === appStatusFilter);
+  const filteredApps = volunteerApps
+    .filter((app) => appStatusFilter === "all" || app.status === appStatusFilter)
+    .filter((app) => appEventFilter === "all" || app.taskId === appEventFilter);
 
   const appCounts = volunteerApps.reduce(
     (acc, app) => {
@@ -300,7 +316,20 @@ export default function Admin({ addToast }: Props) {
     } as Record<ApplicationStatus, number>,
   );
 
-  const displayTasks = tab === "verified" ? verifiedProposals : allTasks;
+  const displayTasks =
+    tab === "verified"
+      ? verifiedProposals
+      : allTasks.filter(
+          (t) => campaignStatusFilter === "all" || t.status === campaignStatusFilter
+        );
+
+  const filteredDonations = donations.filter(
+    (d) => donationStatusFilter === "all" || d.status === donationStatusFilter
+  );
+
+  const filteredPartners = generalPartners.filter(
+    (p) => partnerStatusFilter === "all" || p.status === partnerStatusFilter
+  );
 
   const modalOverlayStyle: React.CSSProperties = {
     position: "fixed",
@@ -446,13 +475,66 @@ export default function Admin({ addToast }: Props) {
 
       {/* Task List */}
       {(tab === "verified" || tab === "all") && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {displayTasks.length === 0 ? (
-            <div className="empty-state">
-              <h3>No {tab} tasks</h3>
-              <p>All caught up! No tasks to review right now.</p>
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <h3 style={{ margin: 0 }}>{tab === "verified" ? "Approved/Live Initiatives" : "All Proposals"}</h3>
+              {tab === "all" && (
+                <select
+                  value={campaignStatusFilter}
+                  onChange={(e) => setCampaignStatusFilter(e.target.value)}
+                  style={{ padding: "6px 12px", borderRadius: "20px", border: "1px solid var(--border)", fontSize: "0.85rem", background: "white", width: "auto" }}
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="pending">Pending review</option>
+                  <option value="approved">Approved/Live</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="completed">Completed</option>
+                </select>
+              )}
             </div>
-          ) : (
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={() => {
+                const headers = ["ID", "Title", "Category", "Status", "Date", "Time", "Volunteers Needed", "Locality", "Pincode", "Applicant Name", "Email", "Phone", "Created At"];
+                const rows = displayTasks.map((t) => [
+                  t.id,
+                  t.title,
+                  t.category,
+                  t.status,
+                  t.eventDate || "",
+                  t.eventTime || "",
+                  t.volunteersNeeded,
+                  t.locality || "",
+                  t.pincode || "",
+                  t.applicantName || "",
+                  t.email || "",
+                  t.phone || "",
+                  new Date(t.createdAt).toLocaleString("en-IN")
+                ]);
+                const csv = [headers, ...rows]
+                  .map((row) => row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(","))
+                  .join("\n");
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = tab === "verified" ? "live-campaigns.csv" : `all-campaigns-status-${campaignStatusFilter}.csv`;
+                link.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              Export CSV
+            </button>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {displayTasks.length === 0 ? (
+              <div className="empty-state">
+                <h3>No {tab} tasks</h3>
+                <p>All caught up! No tasks to review right now.</p>
+              </div>
+            ) : (
             displayTasks.map((task: TaskRequest) => {
               const cat = CATEGORY_META[task.category];
               return (
@@ -508,8 +590,8 @@ export default function Admin({ addToast }: Props) {
                           lineHeight: 1.6,
                         }}
                       >
-                        {task.description.substring(0, 200)}
-                        {task.description.length > 200 ? "..." : ""}
+                        {stripHtml(task.description).substring(0, 200)}
+                        {stripHtml(task.description).length > 200 ? "..." : ""}
                       </p>
                       <div
                         style={{
@@ -630,11 +712,12 @@ export default function Admin({ addToast }: Props) {
             })
           )}
         </div>
-      )}
+      </div>
+    )}
 
       {tab === "volunteers" && (
         <div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
             <button
               className={`filter-chip ${appStatusFilter === "all" ? "active" : ""}`}
               onClick={() => setAppStatusFilter("all")}
@@ -665,14 +748,25 @@ export default function Admin({ addToast }: Props) {
             >
               Rejected ({appCounts.rejected})
             </button>
+
+            <select
+              value={appEventFilter}
+              onChange={(e) => setAppEventFilter(e.target.value)}
+              style={{ padding: "6px 12px", borderRadius: "20px", border: "1px solid var(--border)", fontSize: "0.85rem", background: "white", width: "auto" }}
+            >
+              <option value="all">All Campaigns</option>
+              {allTasks.filter(t => t.status === "approved" || t.status === "completed").map(t => (
+                <option key={t.id} value={t.id}>{t.title}</option>
+              ))}
+            </select>
+
             <button
               className="btn btn-outline btn-sm"
-              onClick={() =>
-                exportApplications(
-                  filteredApps,
-                  "admin-volunteer-applications.csv",
-                )
-              }
+              onClick={() => {
+                const eventSlug = appEventFilter === "all" ? "all" : slugify(allTasks.find(t => t.id === appEventFilter)?.title || "");
+                const filename = `volunteer-applications-event-${eventSlug}-status-${appStatusFilter}.csv`;
+                exportApplications(filteredApps, filename);
+              }}
               style={{ marginLeft: "auto" }}
             >
               Export CSV
@@ -864,27 +958,27 @@ export default function Admin({ addToast }: Props) {
               <p>No general volunteers found in the registry yet.</p>
             </div>
           ) : (
-            <div className="card" style={{ padding: 0, overflow: "hidden", overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", minWidth: "600px" }}>
+            <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-light)", borderRadius: "12px", boxShadow: "var(--shadow)", padding: 0, overflow: "hidden", overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", minWidth: "900px" }}>
                 <thead>
                   <tr style={{ background: "rgba(0,0,0,0.02)", borderBottom: "1px solid var(--border-light)" }}>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Name</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Email</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Phone</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Preferred Role</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Location</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Registered At</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "150px" }}>Name</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "220px" }}>Email</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "120px" }}>Phone</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "150px" }}>Preferred Role</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "150px" }}>Location</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "120px" }}>Registered At</th>
                   </tr>
                 </thead>
                 <tbody>
                   {generalVolunteers.map((vol, idx) => (
                     <tr key={idx} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem", fontWeight: 600 }}>{vol.name}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem" }}>{vol.email}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem" }}>{vol.phone}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem" }}>{vol.preferredRole}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem" }}>{vol.location}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem", color: "var(--text-muted)" }}>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem", fontWeight: 600 }}>{vol.name}</td>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem" }}>{vol.email}</td>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem" }}>{vol.phone}</td>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem" }}>{vol.preferredRole}</td>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem" }}>{vol.location}</td>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem", color: "var(--text-muted)" }}>
                         {new Date(vol.createdAt).toLocaleDateString("en-IN", {
                           day: "numeric",
                           month: "short",
@@ -902,13 +996,25 @@ export default function Admin({ addToast }: Props) {
 
       {tab === "partners" && (
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h3 style={{ margin: 0 }}>General Partner Directory</h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <h3 style={{ margin: 0 }}>General Partner Directory</h3>
+              <select
+                value={partnerStatusFilter}
+                onChange={(e) => setPartnerStatusFilter(e.target.value)}
+                style={{ padding: "6px 12px", borderRadius: "20px", border: "1px solid var(--border)", fontSize: "0.85rem", background: "white", width: "auto" }}
+              >
+                <option value="all">All Statuses</option>
+                <option value="applied">Received</option>
+                <option value="approved">Accepted</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
             <button
               className="btn btn-outline btn-sm"
               onClick={() => {
                 const headers = ["Organization Name", "Org Type", "Contact Name", "Designation", "Email", "Phone", "Locality", "Intent", "Registered At"];
-                const rows = generalPartners.map((part) => [
+                const rows = filteredPartners.map((part) => [
                   part.orgName,
                   part.orgType,
                   part.contactName,
@@ -926,7 +1032,7 @@ export default function Admin({ addToast }: Props) {
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement("a");
                 link.href = url;
-                link.download = "general-partner-directory.csv";
+                link.download = `general-partners-status-${partnerStatusFilter}.csv`;
                 link.click();
                 URL.revokeObjectURL(url);
               }}
@@ -935,34 +1041,34 @@ export default function Admin({ addToast }: Props) {
             </button>
           </div>
 
-          {generalPartners.length === 0 ? (
+          {filteredPartners.length === 0 ? (
             <div className="empty-state">
               <h3>No partner organizations registered</h3>
-              <p>No partner organizations found in the directory yet.</p>
+              <p>No partner organizations match the selected filter.</p>
             </div>
           ) : (
-            <div className="card" style={{ padding: 0, overflow: "hidden", overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", minWidth: "1000px" }}>
+            <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-light)", borderRadius: "12px", boxShadow: "var(--shadow)", padding: 0, overflow: "hidden", overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", minWidth: "1600px" }}>
                 <thead>
                   <tr style={{ background: "rgba(0,0,0,0.02)", borderBottom: "1px solid var(--border-light)" }}>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Org Name</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Type</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Contact Name</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Designation</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Email</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Phone</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Location</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Collab Reason</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Registered At</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Status</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Actions</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "160px" }}>Org Name</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "100px" }}>Type</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "140px" }}>Contact Name</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "130px" }}>Designation</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "220px" }}>Email</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "120px" }}>Phone</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "120px" }}>Location</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "350px", maxWidth: "500px" }}>Collab Reason</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "120px" }}>Registered At</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "100px" }}>Status</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "240px" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {generalPartners.map((part, idx) => (
+                  {filteredPartners.map((part, idx) => (
                     <tr key={idx} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem", fontWeight: 600 }}>{part.orgName}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem" }}>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem", fontWeight: 600 }}>{part.orgName}</td>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem" }}>
                         <span style={{
                           padding: "2px 8px",
                           borderRadius: "4px",
@@ -972,22 +1078,22 @@ export default function Admin({ addToast }: Props) {
                           color: "var(--text-secondary)"
                         }}>{part.orgType}</span>
                       </td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem" }}>{part.contactName}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem" }}>{part.designation}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem" }}>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem" }}>{part.contactName}</td>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem" }}>{part.designation}</td>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem" }}>
                         <a href={`mailto:${part.email}`} style={{ color: "var(--primary)", textDecoration: "none" }}>{part.email}</a>
                       </td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem" }}>{part.phone}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem" }}>{part.location}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.9rem", maxWidth: "200px", wordBreak: "break-word" }}>{part.collabReason}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem", color: "var(--text-muted)" }}>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem" }}>{part.phone}</td>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem" }}>{part.location}</td>
+                      <td style={{ padding: "14px 18px", fontSize: "0.88rem", maxWidth: "450px", wordBreak: "break-word", lineHeight: "1.4" }}>{part.collabReason}</td>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem", color: "var(--text-muted)" }}>
                         {new Date(part.createdAt || "").toLocaleDateString("en-IN", {
                           day: "numeric",
                           month: "short",
                           year: "numeric",
                         })}
                       </td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem" }}>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem" }}>
                         <span style={{
                           padding: "4px 8px",
                           borderRadius: "4px",
@@ -997,7 +1103,7 @@ export default function Admin({ addToast }: Props) {
                           color: part.status === "approved" ? "var(--success)" : part.status === "rejected" ? "var(--danger)" : "var(--warning)"
                         }}>{part.status === "interviewing" ? "Interviewing" : part.status === "approved" ? "Approved" : part.status === "rejected" ? "Rejected" : "Applied"}</span>
                       </td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem" }}>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem" }}>
                         <div style={{ display: "flex", gap: "8px" }}>
                           {part.status === "applied" && (
                             <button
@@ -1063,13 +1169,25 @@ export default function Admin({ addToast }: Props) {
 
       {tab === "donations" && (
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h3 style={{ margin: 0 }}>Donation Reports</h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <h3 style={{ margin: 0 }}>Donation Reports</h3>
+              <select
+                value={donationStatusFilter}
+                onChange={(e) => setDonationStatusFilter(e.target.value)}
+                style={{ padding: "6px 12px", borderRadius: "20px", border: "1px solid var(--border)", fontSize: "0.85rem", background: "white", width: "auto" }}
+              >
+                <option value="all">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
             <button
               className="btn btn-outline btn-sm"
               onClick={() => {
                 const headers = ["Date", "Donor Name", "Email", "Phone", "Amount", "Method", "Transaction ID", "Status"];
-                const rows = donations.map((d) => [
+                const rows = filteredDonations.map((d) => [
                   new Date(d.createdAt).toLocaleString("en-IN"),
                   d.name,
                   d.email,
@@ -1086,7 +1204,7 @@ export default function Admin({ addToast }: Props) {
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement("a");
                 link.href = url;
-                link.download = "donation-reports-registry.csv";
+                link.download = `donation-reports-status-${donationStatusFilter}.csv`;
                 link.click();
                 URL.revokeObjectURL(url);
               }}
@@ -1095,43 +1213,43 @@ export default function Admin({ addToast }: Props) {
             </button>
           </div>
 
-          {donations.length === 0 ? (
+          {filteredDonations.length === 0 ? (
             <div className="empty-state">
               <h3>No donation reports</h3>
-              <p>No manual donation reports have been submitted yet.</p>
+              <p>No manual donation reports match the selected filter.</p>
             </div>
           ) : (
-            <div className="card" style={{ padding: 0, overflow: "hidden", overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", minWidth: "850px" }}>
+            <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-light)", borderRadius: "12px", boxShadow: "var(--shadow)", padding: 0, overflow: "hidden", overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", minWidth: "1100px" }}>
                 <thead>
                   <tr style={{ background: "rgba(0,0,0,0.02)", borderBottom: "1px solid var(--border-light)" }}>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Date</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Donor Name</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Email & Phone</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Amount (INR)</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Method</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Transaction ID</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)" }}>Status</th>
-                    <th style={{ padding: "12px 16px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", textAlign: "center" }}>Actions</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "120px" }}>Date</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "150px" }}>Donor Name</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "220px" }}>Email & Phone</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "120px" }}>Amount (INR)</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "100px" }}>Method</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "180px" }}>Transaction ID</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", minWidth: "100px" }}>Status</th>
+                    <th style={{ padding: "14px 18px", fontSize: "0.85rem", fontWeight: 700, color: "var(--text-muted)", textAlign: "center", minWidth: "160px" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {donations.map((d, idx) => (
+                  {filteredDonations.map((d, idx) => (
                     <tr key={idx} style={{ borderBottom: "1px solid var(--border-light)", background: d.status === "pending" ? "rgba(140,36,36,0.015)" : "inherit" }}>
-                      <td style={{ padding: "12px 16px", fontSize: "0.9rem" }}>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem" }}>
                         {new Date(d.createdAt).toLocaleDateString("en-IN", {
                           day: "numeric",
                           month: "short",
                           year: "numeric",
                         })}
                       </td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem", fontWeight: 600 }}>{d.name}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.9rem" }}>
+                      <td style={{ padding: "14px 18px", fontSize: "0.95rem", fontWeight: 600 }}>{d.name}</td>
+                      <td style={{ padding: "14px 18px", fontSize: "0.92rem" }}>
                         <div>{d.email}</div>
                         <div style={{ color: "var(--text-muted)", fontSize: "0.8rem", marginTop: "2px" }}>{d.phone}</div>
                       </td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.95rem", fontWeight: 700, color: "var(--primary)" }}>₹{d.amount}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "0.85rem" }}>
+                      <td style={{ padding: "14px 18px", fontSize: "0.95rem", fontWeight: 700, color: "var(--primary)" }}>₹{d.amount}</td>
+                      <td style={{ padding: "14px 18px", fontSize: "0.85rem" }}>
                         <span style={{ textTransform: "uppercase", fontWeight: 600, background: "var(--bg)", padding: "2px 6px", borderRadius: "4px", border: "1px solid var(--border)" }}>
                           {d.method}
                         </span>
@@ -1179,6 +1297,32 @@ export default function Admin({ addToast }: Props) {
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h3 style={{ margin: 0 }}>Revision Requests</h3>
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={() => {
+                const headers = ["Campaign Title", "Action Requested", "Reason", "Email", "Proposer Name", "Status"];
+                const rows = revisionRequests.map((r) => [
+                  r.title,
+                  r.userQueryAction === "delete" ? "Delete / Cancel" : "Edit Proposal",
+                  r.userQueryReason || "",
+                  r.email,
+                  r.applicantName,
+                  r.userQueryStatus || "pending"
+                ]);
+                const csv = [headers, ...rows]
+                  .map((row) => row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(","))
+                  .join("\n");
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = "campaign-revision-requests.csv";
+                link.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              Export CSV
+            </button>
           </div>
 
           {revisionRequests.length === 0 ? (
@@ -1487,14 +1631,13 @@ export default function Admin({ addToast }: Props) {
                 <label htmlFor="editShortDescription" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
                   Short Description <span className="required">*</span>
                 </label>
-                <textarea
+                <RichTextEditor
                   id="editShortDescription"
-                  required
-                  maxLength={200}
-                  rows={2}
                   value={editShortDescription}
-                  onChange={(e) => setEditShortDescription(e.target.value)}
-                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", fontFamily: "inherit" }}
+                  onChange={setEditShortDescription}
+                  maxLength={200}
+                  placeholder="A brief tagline of your initiative (max 200 characters)"
+                  rows={2}
                 />
               </div>
 
@@ -1502,14 +1645,13 @@ export default function Admin({ addToast }: Props) {
                 <label htmlFor="editDescription" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
                   Detailed Description <span className="required">*</span>
                 </label>
-                <textarea
+                <RichTextEditor
                   id="editDescription"
-                  required
-                  maxLength={1500}
-                  rows={5}
                   value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", fontFamily: "inherit" }}
+                  onChange={setEditDescription}
+                  maxLength={1500}
+                  placeholder="Explain the what, where, and why of your initiative (max 1500 characters)"
+                  rows={5}
                 />
               </div>
 

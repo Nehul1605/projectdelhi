@@ -13,9 +13,11 @@ import {
   submitUserQuery,
   withdrawVolunteerApp,
   sendTaskChatMessage,
+  updateVolunteerAppStatus,
 } from "../store";
 import { TaskRequest, CATEGORY_META, VolunteerApp, ChatMessage } from "../types";
 import ImageCropper from "../components/ImageCropper";
+import { RichTextEditor, RichTextDisplay } from "../components/RichTextEditor";
 import { 
   Send, 
   AlertCircle, 
@@ -38,6 +40,8 @@ export default function UserDashboard({ addToast }: Props) {
   const [activeTab, setActiveTab] = useState<"proposals" | "volunteering">("proposals");
   const [myProposals, setMyProposals] = useState<TaskRequest[]>([]);
   const [myApplications, setMyApplications] = useState<VolunteerApp[]>([]);
+  const [myProposalsApps, setMyProposalsApps] = useState<VolunteerApp[]>([]);
+  const [expandedProposals, setExpandedProposals] = useState<Record<string, boolean>>({});
   const [responseTexts, setResponseTexts] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   
@@ -150,6 +154,64 @@ export default function UserDashboard({ addToast }: Props) {
       (app) => app.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim()
     );
     setMyApplications(userApps);
+
+    // Filter volunteer applications where taskId belongs to one of userTasks
+    const userTasksIds = new Set(userTasks.map((t) => t.id));
+    const proposerApps = allApps.filter((app) => userTasksIds.has(app.taskId));
+    setMyProposalsApps(proposerApps);
+  };
+
+  const handleUpdateAppStatus = async (appId: string, status: any, reason?: string) => {
+    try {
+      updateVolunteerAppStatus(appId, status, reason);
+      addToast(`Volunteer application successfully ${status === "approved" ? "approved" : "rejected"}.`, "success");
+      // Force sync & refresh dashboard state
+      await initStore();
+      loadDashboardData();
+    } catch (error) {
+      addToast("Failed to update application status.", "error");
+    }
+  };
+
+  const handleRejectApp = (appId: string) => {
+    const reason = window.prompt("Enter rejection reason (optional):") || "";
+    handleUpdateAppStatus(appId, "rejected", reason);
+  };
+
+  const toggleVolunteersExpand = (proposalId: string) => {
+    setExpandedProposals((prev) => ({
+      ...prev,
+      [proposalId]: !prev[proposalId],
+    }));
+  };
+
+  const exportCampaignVolunteers = (proposal: TaskRequest, apps: VolunteerApp[]) => {
+    const headers = ["Volunteer Name", "Email", "Phone", "Application Status", "Applied Date", "Reason / Message", "Prior Experience", "Rejection Reason", "Campaign Title", "Campaign Event Date"];
+    const rows = apps.map((app) => [
+      app.name,
+      app.email,
+      app.phone,
+      app.status === "approved" ? "Accepted" : app.status === "rejected" ? "Rejected" : "Pending",
+      new Date(app.createdAt).toLocaleString("en-IN"),
+      app.reason || "",
+      app.prevExperience || "",
+      app.rejectionReason || "",
+      proposal.title,
+      proposal.eventDate || "",
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) =>
+        row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(",")
+      )
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const safeTitle = proposal.title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    link.href = url;
+    link.download = `volunteers-${safeTitle}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   useEffect(() => {
@@ -267,10 +329,15 @@ export default function UserDashboard({ addToast }: Props) {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProposalForEdit) return;
+    const shortClean = editShortDescription.replace(/<[^>]*>/g, "").trim();
+    const descClean = editDescription.replace(/<[^>]*>/g, "").trim();
+    const cleanShortLen = editShortDescription.replace(/<[^>]*>/g, "").length;
+    const cleanDescLen = editDescription.replace(/<[^>]*>/g, "").length;
+
     if (
       !editTitle.trim() ||
-      !editDescription.trim() ||
-      !editShortDescription.trim() ||
+      !descClean ||
+      !shortClean ||
       !editAddress.trim() ||
       !editLocality.trim() ||
       !editPincode.trim()
@@ -278,11 +345,11 @@ export default function UserDashboard({ addToast }: Props) {
       addToast("Please fill in all required fields.", "error");
       return;
     }
-    if (editShortDescription.length > 200) {
+    if (cleanShortLen > 200) {
       addToast("Short description must not exceed 200 characters.", "error");
       return;
     }
-    if (editDescription.length > 1500) {
+    if (cleanDescLen > 1500) {
       addToast("Detailed description must not exceed 1500 characters.", "error");
       return;
     }
@@ -513,9 +580,9 @@ export default function UserDashboard({ addToast }: Props) {
                       </span>
                     </div>
 
-                    <p style={{ fontSize: "0.92rem", color: "var(--text-secondary)", lineHeight: "1.6", marginBottom: "20px" }}>
-                      {proposal.shortDescription || proposal.description}
-                    </p>
+                    <div style={{ fontSize: "0.92rem", color: "var(--text-secondary)", lineHeight: "1.6", marginBottom: "20px" }}>
+                      <RichTextDisplay content={proposal.shortDescription || proposal.description} />
+                    </div>
 
                     <div 
                       style={{ 
@@ -624,6 +691,108 @@ export default function UserDashboard({ addToast }: Props) {
                         </button>
                       )}
                     </div>
+
+                    {/* Volunteer Management Section (Only for approved/live campaigns) */}
+                    {proposal.status === "approved" && (
+                      (() => {
+                        const proposalApps = myProposalsApps.filter((app) => app.taskId === proposal.id);
+                        const pendingApps = proposalApps.filter((app) => app.status === "applied");
+                        const isExpanded = !!expandedProposals[proposal.id];
+                        
+                        return (
+                          <div style={{ marginTop: "16px", borderTop: "1px solid var(--border-light)", paddingTop: "16px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+                              <button
+                                type="button"
+                                onClick={() => toggleVolunteersExpand(proposal.id)}
+                                className="btn btn-outline btn-sm"
+                                style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--primary)", borderColor: "var(--primary)" }}
+                              >
+                                👥 {isExpanded ? "Hide" : "Manage"} Volunteer Applications ({pendingApps.length} pending, {proposalApps.length} total)
+                              </button>
+                              
+                              {proposalApps.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => exportCampaignVolunteers(proposal, proposalApps)}
+                                  className="btn btn-secondary btn-sm"
+                                  style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                                >
+                                  📥 Export Volunteers CSV
+                                </button>
+                              )}
+                            </div>
+
+                            {isExpanded && (
+                              <div style={{ marginTop: "16px" }}>
+                                {proposalApps.length === 0 ? (
+                                  <div style={{ padding: "16px", textAlign: "center", background: "rgba(0,0,0,0.01)", borderRadius: "8px", border: "1px dashed var(--border)", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                                    No volunteers have applied to this initiative yet.
+                                  </div>
+                                ) : (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                                    {proposalApps.map((app) => (
+                                      <div key={app.id} style={{ padding: "16px", background: "var(--bg-card)", border: "1.5px solid var(--border)", borderRadius: "10px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+                                          <div>
+                                            <h4 style={{ margin: 0, fontWeight: 700, fontSize: "0.95rem" }}>{app.name}</h4>
+                                            <span style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
+                                              {app.email} • {app.phone} • Applied on {new Date(app.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <span className={`status-badge status-${app.status}`} style={{ fontSize: "0.72rem", padding: "4px 8px" }}>
+                                              {app.status === "approved" ? "Accepted" : app.status === "rejected" ? "Rejected" : "Pending"}
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "4px" }}>
+                                          <strong>Reason for joining:</strong> {app.reason}
+                                        </div>
+
+                                        {app.prevExperience && (
+                                          <div style={{ fontSize: "0.82rem", color: "var(--text-secondary)", background: "rgba(0,0,0,0.02)", padding: "8px 12px", borderRadius: "6px", borderLeft: "3px solid var(--primary)" }}>
+                                            <strong>Prior Experience:</strong> {app.prevExperience}
+                                          </div>
+                                        )}
+
+                                        {app.status === "rejected" && app.rejectionReason && (
+                                          <div style={{ fontSize: "0.82rem", color: "var(--danger)", background: "rgba(239, 68, 68, 0.02)", padding: "6px 12px", borderRadius: "6px", borderLeft: "3px solid var(--danger)" }}>
+                                            <strong>Rejection Reason:</strong> {app.rejectionReason}
+                                          </div>
+                                        )}
+
+                                        {app.status === "applied" && (
+                                          <div style={{ display: "flex", gap: "8px", marginTop: "4px", justifyContent: "flex-end" }}>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleUpdateAppStatus(app.id, "approved")}
+                                              className="btn btn-success btn-sm"
+                                              style={{ padding: "4px 10px", fontSize: "0.75rem" }}
+                                            >
+                                              Accept
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRejectApp(app.id)}
+                                              className="btn btn-danger btn-sm"
+                                              style={{ padding: "4px 10px", fontSize: "0.75rem" }}
+                                            >
+                                              Reject
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()
+                    )}
 
                     {/* Moderator Request/Chat pop warning card */}
                     {hasPendingModQuery && (
@@ -1135,40 +1304,30 @@ export default function UserDashboard({ addToast }: Props) {
               </div>
 
               <div className="form-group" style={{ marginBottom: "16px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <label htmlFor="editShortDesc" style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)" }}>
-                    Short Description <span className="required">*</span>
-                  </label>
-                  <span style={{ fontSize: "0.75rem", color: editShortDescription.length > 200 ? "var(--danger)" : "var(--text-muted)" }}>
-                    {editShortDescription.length}/200
-                  </span>
-                </div>
-                <textarea
+                <label htmlFor="editShortDesc" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "6px" }}>
+                  Short Description <span className="required">*</span>
+                </label>
+                <RichTextEditor
                   id="editShortDesc"
-                  required
-                  rows={2}
                   value={editShortDescription}
-                  onChange={(e) => setEditShortDescription(e.target.value)}
-                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", fontFamily: "inherit", resize: "none" }}
+                  onChange={setEditShortDescription}
+                  maxLength={200}
+                  placeholder="A brief tagline of your initiative (max 200 characters)"
+                  rows={2}
                 />
               </div>
 
               <div className="form-group" style={{ marginBottom: "24px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <label htmlFor="editDesc" style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)" }}>
-                    Detailed Description <span className="required">*</span>
-                  </label>
-                  <span style={{ fontSize: "0.75rem", color: editDescription.length > 1500 ? "var(--danger)" : "var(--text-muted)" }}>
-                    {editDescription.length}/1500
-                  </span>
-                </div>
-                <textarea
+                <label htmlFor="editDesc" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "6px" }}>
+                  Detailed Description <span className="required">*</span>
+                </label>
+                <RichTextEditor
                   id="editDesc"
-                  required
-                  rows={5}
                   value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", fontFamily: "inherit", resize: "vertical" }}
+                  onChange={setEditDescription}
+                  maxLength={1500}
+                  placeholder="Explain the what, where, and why of your initiative (max 1500 characters)"
+                  rows={5}
                 />
               </div>
 

@@ -13,9 +13,11 @@ import {
   deleteProposal,
   adminEditProposal,
   sendTaskChatMessage,
+  slugify,
 } from "../store";
 import { TaskRequest, VolunteerApp, ApplicationStatus, GeneralPartner, CATEGORY_META, ChatMessage } from "../types";
 import { X } from "lucide-react";
+import { RichTextEditor, RichTextDisplay } from "../components/RichTextEditor";
 
 interface VolunteerDashboardProps {
   addToast: (msg: string, type: "success" | "error" | "info") => void;
@@ -34,17 +36,23 @@ export default function VolunteerDashboard({
   const [appStatusFilter, setAppStatusFilter] = useState<
     ApplicationStatus | "all"
   >("all");
+  const [proposalStatusFilter, setProposalStatusFilter] = useState<string>("pending");
+  const [appEventFilter, setAppEventFilter] = useState<string>("all");
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [proposalStatusFilter]);
 
   const loadData = () => {
-    setProposals(getPendingTasks());
+    const allTasks = getTasks();
+    const filteredTasks = allTasks.filter((t) => {
+      if (proposalStatusFilter === "all") return true;
+      return t.status === proposalStatusFilter;
+    });
+    setProposals(filteredTasks);
     setApplications(getVolunteerApps());
     getGeneralPartners().then(setPartners);
 
-    const allTasks = getTasks();
     const queries = allTasks.filter((t) => t.userQueryStatus === "pending");
     setRevisionRequests(queries);
   };
@@ -108,6 +116,18 @@ export default function VolunteerDashboard({
   const handleSaveEditProposal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProposal) return;
+
+    const shortClean = editShortDescription.replace(/<[^>]*>/g, "").trim();
+    const descClean = editDescription.replace(/<[^>]*>/g, "").trim();
+
+    if (!shortClean) {
+      addToast("Short Description is required.", "error");
+      return;
+    }
+    if (!descClean) {
+      addToast("Detailed Description is required.", "error");
+      return;
+    }
 
     if (!editPincode.trim().startsWith("11")) {
       addToast("Not a Delhi pincode. This platform only supports Delhi initiatives.", "error");
@@ -312,10 +332,9 @@ export default function VolunteerDashboard({
     URL.revokeObjectURL(url);
   };
 
-  const filteredApps =
-    appStatusFilter === "all"
-      ? applications
-      : applications.filter((app) => app.status === appStatusFilter);
+  const filteredApps = applications
+    .filter((app) => appStatusFilter === "all" || app.status === appStatusFilter)
+    .filter((app) => appEventFilter === "all" || app.taskId === appEventFilter);
 
   const appCounts = applications.reduce(
     (acc, app) => {
@@ -445,12 +464,63 @@ export default function VolunteerDashboard({
         </div>
 
         {activeTab === "proposals" && (
-          <div className="grid">
-            {proposals.length === 0 ? (
-              <p style={{ color: "var(--text-secondary)" }}>
-                No pending proposals to review.
-              </p>
-            ) : (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <h3 style={{ margin: 0 }}>Campaign Proposals</h3>
+                <select
+                  value={proposalStatusFilter}
+                  onChange={(e) => setProposalStatusFilter(e.target.value)}
+                  style={{ padding: "6px 12px", borderRadius: "20px", border: "1px solid var(--border)", fontSize: "0.85rem", background: "white", width: "auto" }}
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="pending">Pending review</option>
+                  <option value="approved">Approved/Live</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => {
+                  const headers = ["ID", "Title", "Category", "Status", "Date", "Time", "Volunteers Needed", "Locality", "Pincode", "Applicant Name", "Email", "Phone", "Created At"];
+                  const rows = proposals.map((t) => [
+                    t.id,
+                    t.title,
+                    t.category,
+                    t.status,
+                    t.eventDate || "",
+                    t.eventTime || "",
+                    t.volunteersNeeded,
+                    t.locality || "",
+                    t.pincode || "",
+                    t.applicantName || "",
+                    t.email || "",
+                    t.phone || "",
+                    new Date(t.createdAt).toLocaleString("en-IN")
+                  ]);
+                  const csv = [headers, ...rows]
+                    .map((row) => row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(","))
+                    .join("\n");
+                  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.download = `moderator-campaign-proposals-status-${proposalStatusFilter}.csv`;
+                  link.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                Export CSV
+              </button>
+            </div>
+
+            <div className="grid">
+              {proposals.length === 0 ? (
+                <p style={{ color: "var(--text-secondary)" }}>
+                  No campaign proposals match the selected filter.
+                </p>
+              ) : (
               proposals.map((proposal) => (
                 <div key={proposal.id} className="card">
                   <h3 style={{ marginBottom: "6px" }}>{proposal.title}</h3>
@@ -467,17 +537,17 @@ export default function VolunteerDashboard({
                   {proposal.shortDescription && (
                     <div style={{ marginBottom: "12px", fontSize: "0.9rem" }}>
                       <strong style={{ color: "var(--text-secondary)", fontSize: "0.82rem" }}>Short Description:</strong>
-                      <p style={{ margin: "2px 0 0 0", color: "var(--text-secondary)", fontStyle: "italic" }}>
-                        {proposal.shortDescription}
-                      </p>
+                      <div style={{ margin: "2px 0 0 0", color: "var(--text-secondary)", fontStyle: "italic" }}>
+                        <RichTextDisplay content={proposal.shortDescription} />
+                      </div>
                     </div>
                   )}
 
                   <div style={{ marginBottom: "14px", fontSize: "0.9rem" }}>
                     <strong style={{ color: "var(--text-secondary)", fontSize: "0.82rem" }}>Detailed Description:</strong>
-                    <p style={{ margin: "2px 0 0 0", color: "var(--text)", lineHeight: "1.5" }}>
-                      {proposal.description}
-                    </p>
+                    <div style={{ margin: "2px 0 0 0", color: "var(--text)", lineHeight: "1.5" }}>
+                      <RichTextDisplay content={proposal.description} />
+                    </div>
                   </div>
 
                   <div 
@@ -678,11 +748,12 @@ export default function VolunteerDashboard({
               ))
             )}
           </div>
-        )}
+        </div>
+      )}
 
         {activeTab === "applications" && (
           <div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
               <button
                 className={`filter-chip ${appStatusFilter === "all" ? "active" : ""}`}
                 onClick={() => setAppStatusFilter("all")}
@@ -713,14 +784,25 @@ export default function VolunteerDashboard({
               >
                 Rejected ({appCounts.rejected})
               </button>
+
+              <select
+                value={appEventFilter}
+                onChange={(e) => setAppEventFilter(e.target.value)}
+                style={{ padding: "6px 12px", borderRadius: "20px", border: "1px solid var(--border)", fontSize: "0.85rem", background: "white", width: "auto" }}
+              >
+                <option value="all">All Campaigns</option>
+                {getTasks().filter(t => t.status === "approved" || t.status === "completed").map(t => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))}
+              </select>
+
               <button
                 className="btn btn-outline btn-sm"
-                onClick={() =>
-                  exportApplications(
-                    filteredApps,
-                    "moderator-volunteer-applications.csv",
-                  )
-                }
+                onClick={() => {
+                  const eventSlug = appEventFilter === "all" ? "all" : slugify(getTasks().find(t => t.id === appEventFilter)?.title || "");
+                  const filename = `moderator-volunteer-apps-event-${eventSlug}-status-${appStatusFilter}.csv`;
+                  exportApplications(filteredApps, filename);
+                }}
                 style={{ marginLeft: "auto" }}
               >
                 Export CSV
@@ -980,6 +1062,36 @@ export default function VolunteerDashboard({
 
         {activeTab === "queries" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0 }}>User Queries</h3>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => {
+                  const headers = ["Campaign Title", "Action Requested", "Reason", "Email", "Proposer Name", "Status"];
+                  const rows = revisionRequests.map((r) => [
+                    r.title,
+                    r.userQueryAction === "delete" ? "Delete / Cancel" : "Edit Proposal",
+                    r.userQueryReason || "",
+                    r.email,
+                    r.applicantName,
+                    r.status
+                  ]);
+                  const csv = [headers, ...rows]
+                    .map((row) => row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(","))
+                    .join("\n");
+                  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.download = "moderator-campaign-queries.csv";
+                  link.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                Export CSV
+              </button>
+            </div>
+
             {revisionRequests.length === 0 ? (
               <div className="card" style={{ padding: "48px 20px", textAlign: "center", border: "1px dashed var(--border)" }}>
                 <p style={{ color: "var(--text-secondary)", margin: 0 }}>
@@ -1280,20 +1392,17 @@ export default function VolunteerDashboard({
                       style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)" }}
                     />
                   </div>
-                </div>
-
-                <div className="form-group" style={{ marginBottom: "16px" }}>
+                         <div className="form-group" style={{ marginBottom: "16px" }}>
                   <label htmlFor="editShortDescription" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
                     Short Description <span className="required">*</span>
                   </label>
-                  <textarea
+                  <RichTextEditor
                     id="editShortDescription"
-                    required
-                    maxLength={200}
-                    rows={2}
                     value={editShortDescription}
-                    onChange={(e) => setEditShortDescription(e.target.value)}
-                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", fontFamily: "inherit" }}
+                    onChange={setEditShortDescription}
+                    maxLength={200}
+                    placeholder="A brief tagline of your initiative (max 200 characters)"
+                    rows={2}
                   />
                 </div>
 
@@ -1301,16 +1410,15 @@ export default function VolunteerDashboard({
                   <label htmlFor="editDescription" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
                     Detailed Description <span className="required">*</span>
                   </label>
-                  <textarea
+                  <RichTextEditor
                     id="editDescription"
-                    required
-                    maxLength={1500}
-                    rows={5}
                     value={editDescription}
-                    onChange={(e) => setEditDescription(e.target.value)}
-                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", fontFamily: "inherit" }}
+                    onChange={setEditDescription}
+                    maxLength={1500}
+                    placeholder="Explain the what, where, and why of your initiative (max 1500 characters)"
+                    rows={5}
                   />
-                </div>
+                </div>          </div>
 
                 <div className="form-group" style={{ marginBottom: "16px" }}>
                   <label htmlFor="editAddress" style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "4px" }}>
