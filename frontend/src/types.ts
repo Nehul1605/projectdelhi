@@ -21,6 +21,15 @@ export interface CurrentUser {
   name: string;
 }
 
+export interface ConversationUpdate {
+  _id?: string;
+  updatedBy: string;
+  userName: string;
+  role: string;
+  notes: string;
+  createdAt: string;
+}
+
 export interface VolunteerApp {
   id: string;
   taskId: string;
@@ -33,6 +42,7 @@ export interface VolunteerApp {
   status: ApplicationStatus;
   createdAt: string;
   rejectionReason?: string;
+  conversationUpdates?: ConversationUpdate[];
 }
 
 export type TaskCategory =

@@ -6,6 +6,7 @@ import {
   Role,
   GeneralPartner,
   ChatMessage,
+  ConversationUpdate,
 } from "./types";
 import type { TaskStatus, ApplicationStatus } from "./types";
 
@@ -403,13 +404,84 @@ export function updateVolunteerAppStatus(
       }
     }
 
+    const currentUser = getCurrentUser();
+    const updatedBy = currentUser?.email || "system@projectdelhi.org";
+    const userName = currentUser?.name || "System";
+    let role = currentUser?.role || "SYSTEM";
+
+    // If the updater is the event proposer, label them as PROPOSAL_OWNER
+    const task = cachedTasks.find((t) => t.id === app.taskId);
+    if (task && currentUser && task.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim()) {
+      role = "PROPOSAL_OWNER" as any;
+    }
+
+    if (!app.conversationUpdates) {
+      app.conversationUpdates = [];
+    }
+    app.conversationUpdates.push({
+      updatedBy,
+      userName,
+      role,
+      notes: `Application status set to "${status}"${rejectionReason ? ` (Reason: ${rejectionReason})` : ""}`,
+      createdAt: new Date().toISOString()
+    });
+
     // Sync with backend in background
     fetch(`${API_BASE_URL}/volunteer-apps/${id}/status`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status, rejectionReason }),
+      body: JSON.stringify({ status, rejectionReason, updatedBy, userName, role }),
     }).catch((err) => console.error("Failed to sync volunteer app status to backend", err));
   }
+}
+
+export async function addConversationUpdate(
+  appId: string,
+  notes: string
+): Promise<ConversationUpdate> {
+  const currentUser = getCurrentUser();
+  if (!currentUser) {
+    throw new Error("Must be logged in to add conversation updates");
+  }
+
+  const idx = cachedApps.findIndex((a) => a.id === appId);
+  if (idx === -1) {
+    throw new Error("Application not found");
+  }
+  const app = cachedApps[idx];
+
+  let role = currentUser.role;
+  const task = cachedTasks.find((t) => t.id === app.taskId);
+  if (task && task.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim()) {
+    role = "PROPOSAL_OWNER" as any;
+  }
+
+  const updateData = {
+    updatedBy: currentUser.email,
+    userName: currentUser.name,
+    role: role,
+    notes: notes
+  };
+
+  const res = await fetch(`${API_BASE_URL}/volunteer-apps/${appId}/conversation-updates`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updateData),
+  });
+
+  if (!res.ok) {
+    const errData = await res.json();
+    throw new Error(errData.error || "Failed to add conversation update");
+  }
+
+  const savedUpdate = await res.json();
+
+  if (!app.conversationUpdates) {
+    app.conversationUpdates = [];
+  }
+  app.conversationUpdates.push(savedUpdate);
+
+  return savedUpdate;
 }
 
 export async function withdrawVolunteerApp(id: string, reason?: string): Promise<void> {

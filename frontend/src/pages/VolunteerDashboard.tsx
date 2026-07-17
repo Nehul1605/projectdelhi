@@ -4,6 +4,7 @@ import {
   updateTaskStatus,
   getVolunteerApps,
   updateVolunteerAppStatus,
+  addConversationUpdate,
   requestTaskDetails,
   getTasks,
   getGeneralPartners,
@@ -31,6 +32,8 @@ export default function VolunteerDashboard({
   );
   const [proposals, setProposals] = useState<TaskRequest[]>([]);
   const [applications, setApplications] = useState<VolunteerApp[]>([]);
+  const [expandedLogs, setExpandedLogs] = useState<Record<string, boolean>>({});
+  const [newLogText, setNewLogText] = useState<Record<string, string>>({});
   const [partners, setPartners] = useState<GeneralPartner[]>([]);
   const [revisionRequests, setRevisionRequests] = useState<TaskRequest[]>([]);
   const [appStatusFilter, setAppStatusFilter] = useState<
@@ -300,6 +303,24 @@ export default function VolunteerDashboard({
     setRejectAppId(null);
     setAppRejectionReason("");
     loadData();
+  };
+
+  const handleAddLogEntry = async (appId: string) => {
+    const text = newLogText[appId];
+    if (!text || !text.trim()) return;
+
+    try {
+      await addConversationUpdate(appId, text.trim());
+      setNewLogText({ ...newLogText, [appId]: "" });
+      loadData();
+      addToast("Log entry added successfully.", "success");
+    } catch (err: any) {
+      addToast(err.message || "Failed to add log entry", "error");
+    }
+  };
+
+  const toggleContactLog = (appId: string) => {
+    setExpandedLogs((prev) => ({ ...prev, [appId]: !prev[appId] }));
   };
 
   const statusLabel = (status: ApplicationStatus) => {
@@ -905,9 +926,113 @@ export default function VolunteerDashboard({
                             Reject
                           </button>
                         )}
+                    </div>
+                    {/* Contact History & Log Section */}
+                    <div style={{ marginTop: 16, borderTop: "1px dashed var(--border-light)", paddingTop: 12 }}>
+                      {/* Header with expand/collapse */}
+                      <div 
+                        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
+                        onClick={() => toggleContactLog(app.id)}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", fontWeight: 600, color: "var(--primary)" }}>
+                          <span>💬 Contact & Conversation History</span>
+                          {app.conversationUpdates && app.conversationUpdates.length > 0 && (
+                            <span style={{ background: "var(--primary-light)", color: "white", borderRadius: "10px", padding: "2px 6px", fontSize: "0.75rem" }}>
+                              {app.conversationUpdates.length}
+                            </span>
+                          )}
+                        </div>
+                        <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                          {expandedLogs[app.id] ? "Hide Details ▲" : "Show Details ▼"}
+                        </span>
                       </div>
+
+                      {/* Summary of latest update (if collapsed and exists) */}
+                      {!expandedLogs[app.id] && app.conversationUpdates && app.conversationUpdates.length > 0 && (
+                        <div style={{ marginTop: 6, fontSize: "0.8rem", color: "var(--text-secondary)", background: "rgba(0,0,0,0.02)", padding: "6px 10px", borderRadius: 6 }}>
+                          <strong>Latest update:</strong> "{app.conversationUpdates[app.conversationUpdates.length - 1].notes}" by {app.conversationUpdates[app.conversationUpdates.length - 1].userName} ({new Date(app.conversationUpdates[app.conversationUpdates.length - 1].createdAt).toLocaleDateString('en-IN')})
+                        </div>
+                      )}
+
+                      {/* Detailed Log History & Add Log Form */}
+                      {expandedLogs[app.id] && (
+                        <div style={{ marginTop: 12 }}>
+                          {/* Timeline of past updates */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 200, overflowY: "auto", paddingRight: 4, marginBottom: 12 }}>
+                            {!app.conversationUpdates || app.conversationUpdates.length === 0 ? (
+                              <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontStyle: "italic", padding: "4px 0" }}>
+                                No contact history recorded yet.
+                              </div>
+                            ) : (
+                              [...app.conversationUpdates].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()).map((up, idx) => (
+                                <div 
+                                  key={up._id || idx} 
+                                  style={{ 
+                                    padding: "8px 10px", 
+                                    background: up.role === "SYSTEM" ? "rgba(0,0,0,0.02)" : "rgba(140, 36, 36, 0.02)", 
+                                    borderLeft: up.role === "SYSTEM" ? "3px solid #ccc" : "3px solid var(--primary)",
+                                    borderRadius: "0 6px 6px 0",
+                                    fontSize: "0.82rem"
+                                  }}
+                                >
+                                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2, fontSize: "0.78rem" }}>
+                                    <span>
+                                      <strong>{up.userName}</strong> 
+                                      <span style={{ 
+                                        marginLeft: 6, 
+                                        padding: "1px 4px", 
+                                        borderRadius: 4, 
+                                        background: up.role === "ADMIN" ? "#ef4444" : up.role === "MODERATOR" ? "#3b82f6" : up.role === "PROPOSAL_OWNER" ? "#10b981" : "#e5e7eb", 
+                                        color: ["ADMIN", "MODERATOR", "PROPOSAL_OWNER"].includes(up.role) ? "white" : "#374151", 
+                                        fontSize: "0.65rem",
+                                        fontWeight: 600
+                                      }}>
+                                        {up.role === "PROPOSAL_OWNER" ? "OWNER" : up.role}
+                                      </span>
+                                    </span>
+                                    <span style={{ color: "var(--text-muted)" }}>
+                                      {new Date(up.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                                    </span>
+                                  </div>
+                                  <div style={{ color: "var(--text)", lineHeight: 1.3 }}>{up.notes}</div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+
+                          {/* Add note form */}
+                          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                            <textarea
+                              placeholder="Type a contact update note..."
+                              value={newLogText[app.id] || ""}
+                              onChange={(e) => setNewLogText({ ...newLogText, [app.id]: e.target.value })}
+                              rows={1}
+                              style={{ 
+                                flex: 1, 
+                                padding: "8px 10px", 
+                                borderRadius: 6, 
+                                border: "1px solid var(--border)", 
+                                fontSize: "0.82rem", 
+                                resize: "none",
+                                height: "36px",
+                                lineHeight: "18px",
+                                fontFamily: "inherit"
+                              }}
+                            />
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() => handleAddLogEntry(app.id)}
+                              disabled={!newLogText[app.id] || !newLogText[app.id].trim()}
+                              style={{ height: "36px", fontSize: "0.8rem", padding: "0 12px" }}
+                            >
+                              Add Log
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
+                </div>
                 ))}
               </div>
             )}

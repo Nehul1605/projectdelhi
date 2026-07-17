@@ -14,6 +14,7 @@ import {
   withdrawVolunteerApp,
   sendTaskChatMessage,
   updateVolunteerAppStatus,
+  addConversationUpdate,
 } from "../store";
 import { TaskRequest, CATEGORY_META, VolunteerApp, ChatMessage } from "../types";
 import ImageCropper from "../components/ImageCropper";
@@ -41,6 +42,8 @@ export default function UserDashboard({ addToast }: Props) {
   const [myProposals, setMyProposals] = useState<TaskRequest[]>([]);
   const [myApplications, setMyApplications] = useState<VolunteerApp[]>([]);
   const [myProposalsApps, setMyProposalsApps] = useState<VolunteerApp[]>([]);
+  const [expandedLogs, setExpandedLogs] = useState<Record<string, boolean>>({});
+  const [newLogText, setNewLogText] = useState<Record<string, string>>({});
   const [expandedProposals, setExpandedProposals] = useState<Record<string, boolean>>({});
   const [responseTexts, setResponseTexts] = useState<Record<string, string>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
@@ -176,6 +179,24 @@ export default function UserDashboard({ addToast }: Props) {
   const handleRejectApp = (appId: string) => {
     const reason = window.prompt("Enter rejection reason (optional):") || "";
     handleUpdateAppStatus(appId, "rejected", reason);
+  };
+
+  const handleAddLogEntry = async (appId: string) => {
+    const text = newLogText[appId];
+    if (!text || !text.trim()) return;
+
+    try {
+      await addConversationUpdate(appId, text.trim());
+      setNewLogText({ ...newLogText, [appId]: "" });
+      loadDashboardData();
+      addToast("Log entry added successfully.", "success");
+    } catch (err: any) {
+      addToast(err.message || "Failed to add log entry", "error");
+    }
+  };
+
+  const toggleContactLog = (appId: string) => {
+    setExpandedLogs((prev) => ({ ...prev, [appId]: !prev[appId] }));
   };
 
   const toggleVolunteersExpand = (proposalId: string) => {
@@ -783,6 +804,111 @@ export default function UserDashboard({ addToast }: Props) {
                                             </button>
                                           </div>
                                         )}
+
+                                        {/* Contact History & Log Section */}
+                                        <div style={{ marginTop: 12, borderTop: "1px dashed var(--border-light)", paddingTop: 10 }}>
+                                          {/* Header with expand/collapse */}
+                                          <div 
+                                            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
+                                            onClick={() => toggleContactLog(app.id)}
+                                          >
+                                            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.82rem", fontWeight: 600, color: "var(--primary)" }}>
+                                              <span>💬 Contact & Conversation History</span>
+                                              {app.conversationUpdates && app.conversationUpdates.length > 0 && (
+                                                <span style={{ background: "var(--primary-light)", color: "white", borderRadius: "10px", padding: "1px 5px", fontSize: "0.7rem" }}>
+                                                  {app.conversationUpdates.length}
+                                                </span>
+                                              )}
+                                            </div>
+                                            <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>
+                                              {expandedLogs[app.id] ? "Hide Details ▲" : "Show Details ▼"}
+                                            </span>
+                                          </div>
+
+                                          {/* Summary of latest update (if collapsed and exists) */}
+                                          {!expandedLogs[app.id] && app.conversationUpdates && app.conversationUpdates.length > 0 && (
+                                            <div style={{ marginTop: 6, fontSize: "0.78rem", color: "var(--text-secondary)", background: "rgba(0,0,0,0.02)", padding: "5px 8px", borderRadius: 5 }}>
+                                              <strong>Latest update:</strong> "{app.conversationUpdates[app.conversationUpdates.length - 1].notes}" by {app.conversationUpdates[app.conversationUpdates.length - 1].userName} ({new Date(app.conversationUpdates[app.conversationUpdates.length - 1].createdAt).toLocaleDateString('en-IN')})
+                                            </div>
+                                          )}
+
+                                          {/* Detailed Log History & Add Log Form */}
+                                          {expandedLogs[app.id] && (
+                                            <div style={{ marginTop: 10 }}>
+                                              {/* Timeline of past updates */}
+                                              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 150, overflowY: "auto", paddingRight: 4, marginBottom: 10 }}>
+                                                {!app.conversationUpdates || app.conversationUpdates.length === 0 ? (
+                                                  <div style={{ fontSize: "0.78rem", color: "var(--text-muted)", fontStyle: "italic", padding: "2px 0" }}>
+                                                    No contact history recorded yet.
+                                                  </div>
+                                                ) : (
+                                                  [...app.conversationUpdates].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()).map((up, idx) => (
+                                                    <div 
+                                                      key={up._id || idx} 
+                                                      style={{ 
+                                                        padding: "6px 8px", 
+                                                        background: up.role === "SYSTEM" ? "rgba(0,0,0,0.02)" : "rgba(140, 36, 36, 0.02)", 
+                                                        borderLeft: up.role === "SYSTEM" ? "3px solid #ccc" : "3px solid var(--primary)",
+                                                        borderRadius: "0 5px 5px 0",
+                                                        fontSize: "0.78rem"
+                                                      }}
+                                                    >
+                                                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2, fontSize: "0.72rem" }}>
+                                                        <span>
+                                                          <strong>{up.userName}</strong> 
+                                                          <span style={{ 
+                                                            marginLeft: 4, 
+                                                            padding: "1px 3px", 
+                                                            borderRadius: 3, 
+                                                            background: up.role === "ADMIN" ? "#ef4444" : up.role === "MODERATOR" ? "#3b82f6" : up.role === "PROPOSAL_OWNER" ? "#10b981" : "#e5e7eb", 
+                                                            color: ["ADMIN", "MODERATOR", "PROPOSAL_OWNER"].includes(up.role) ? "white" : "#374151", 
+                                                            fontSize: "0.6rem",
+                                                            fontWeight: 600
+                                                          }}>
+                                                            {up.role === "PROPOSAL_OWNER" ? "OWNER" : up.role}
+                                                          </span>
+                                                        </span>
+                                                        <span style={{ color: "var(--text-muted)" }}>
+                                                          {new Date(up.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                                                        </span>
+                                                      </div>
+                                                      <div style={{ color: "var(--text)", lineHeight: 1.25 }}>{up.notes}</div>
+                                                    </div>
+                                                  ))
+                                                )}
+                                              </div>
+
+                                              {/* Add note form */}
+                                              <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
+                                                <textarea
+                                                  placeholder="Type a contact update note..."
+                                                  value={newLogText[app.id] || ""}
+                                                  onChange={(e) => setNewLogText({ ...newLogText, [app.id]: e.target.value })}
+                                                  rows={1}
+                                                  style={{ 
+                                                    flex: 1, 
+                                                    padding: "6px 8px", 
+                                                    borderRadius: 5, 
+                                                    border: "1px solid var(--border)", 
+                                                    fontSize: "0.78rem", 
+                                                    resize: "none",
+                                                    height: "32px",
+                                                    lineHeight: "16px",
+                                                    fontFamily: "inherit"
+                                                  }}
+                                                />
+                                                <button
+                                                  className="btn btn-primary btn-sm"
+                                                  onClick={() => handleAddLogEntry(app.id)}
+                                                  disabled={!newLogText[app.id] || !newLogText[app.id].trim()}
+                                                  style={{ height: "32px", fontSize: "0.75rem", padding: "0 10px" }}
+                                                >
+                                                  Add Log
+                                                </button>
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
                                     ))}
                                   </div>

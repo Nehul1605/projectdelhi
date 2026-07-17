@@ -81,15 +81,34 @@ router.post("/volunteer-apps", async (req, res) => {
 router.put("/volunteer-apps/:id/status", async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, rejectionReason } = req.body;
+    const { status, rejectionReason, updatedBy, userName, role } = req.body;
     
-    const update = { status };
-    if (rejectionReason !== undefined) {
-      update.rejectionReason = rejectionReason;
-    }
-    
-    const appRecord = await VolunteerApp.findOneAndUpdate({ id }, update, { new: true });
+    const appRecord = await VolunteerApp.findOne({ id });
     if (appRecord) {
+      appRecord.status = status;
+      if (rejectionReason !== undefined) {
+        appRecord.rejectionReason = rejectionReason;
+      }
+
+      // Add status change note to conversationUpdates
+      const updaterEmail = updatedBy || "system@projectdelhi.org";
+      const updaterName = userName || "System";
+      const updaterRole = role || "SYSTEM";
+      const statusNote = `Application status set to "${status}"${rejectionReason ? ` (Reason: ${rejectionReason})` : ""}`;
+
+      if (!appRecord.conversationUpdates) {
+        appRecord.conversationUpdates = [];
+      }
+      appRecord.conversationUpdates.push({
+        updatedBy: updaterEmail,
+        userName: updaterName,
+        role: updaterRole,
+        notes: statusNote,
+        createdAt: new Date().toISOString()
+      });
+
+      await appRecord.save();
+
       const Task = require("../models/Task");
       const task = await Task.findOne({ id: appRecord.taskId });
       const taskTitle = task ? task.title : "Community Initiative";
@@ -126,6 +145,54 @@ router.put("/volunteer-apps/:id/status", async (req, res) => {
     } else {
       res.status(404).json({ error: "Application not found" });
     }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add volunteer application conversation update
+router.post("/volunteer-apps/:id/conversation-updates", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { updatedBy, userName, role, notes } = req.body;
+
+    if (!updatedBy || !userName || !role || !notes) {
+      return res.status(400).json({ error: "Missing required fields: updatedBy, userName, role, notes" });
+    }
+
+    const appRecord = await VolunteerApp.findOne({ id });
+    if (!appRecord) {
+      return res.status(404).json({ error: "Volunteer application not found" });
+    }
+
+    const Task = require("../models/Task");
+    const task = await Task.findOne({ id: appRecord.taskId });
+    const taskTitle = task ? task.title : "Community Initiative";
+
+    const newUpdate = {
+      updatedBy,
+      userName,
+      role,
+      notes,
+      createdAt: new Date().toISOString()
+    };
+
+    if (!appRecord.conversationUpdates) {
+      appRecord.conversationUpdates = [];
+    }
+
+    appRecord.conversationUpdates.push(newUpdate);
+    await appRecord.save();
+
+    await logActivity({
+      userEmail: updatedBy,
+      userName: userName,
+      action: "VOLUNTEER_APP_CONVERSATION_UPDATED",
+      details: `Added conversation update for volunteer "${appRecord.name}" under task "${taskTitle}": "${notes}"`
+    });
+
+    const savedUpdate = appRecord.conversationUpdates[appRecord.conversationUpdates.length - 1];
+    res.json(savedUpdate);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
