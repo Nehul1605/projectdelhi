@@ -213,12 +213,12 @@ router.get("/stats", async (req, res) => {
       0
     );
 
-    const totalVolunteers = activeVolunteersCount + deletedVolunteersCount;
+    const totalVolunteers = 26 + activeVolunteersCount + deletedVolunteersCount;
 
     // Calculate events conducted: completed in Task + completed in DeletedTask
     const completedTasksCount = completed.length;
     const completedDeletedTasksCount = deletedTasks.filter((t) => t.status === "completed").length;
-    const eventsConducted = completedTasksCount + completedDeletedTasksCount;
+    const eventsConducted = 3 + completedTasksCount + completedDeletedTasksCount;
 
     res.json({
       totalTasks: approved.length,

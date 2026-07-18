@@ -705,7 +705,7 @@ export function resetToSeedData(): void {
 export function getStats() {
   const approved = cachedTasks.filter((t) => t.status === "approved");
   const completed = cachedTasks.filter((t) => t.status === "completed");
-  const totalVolunteers = [...approved, ...completed].reduce(
+  const totalVolunteers = 26 + [...approved, ...completed].reduce(
     (sum, t) => sum + (t.volunteers?.length || 0),
     0
   ) + deletedVolunteersCount;
@@ -714,7 +714,7 @@ export function getStats() {
     totalTasks: approved.length,
     totalVolunteers,
     totalPending: cachedTasks.filter((t) => t.status === "pending").length,
-    eventsConducted: completed.length + deletedEventsConductedCount,
+    eventsConducted: 3 + completed.length + deletedEventsConductedCount,
   };
 }
 

@@ -29,6 +29,9 @@ app.use(express.urlencoded({ limit: "10mb", extended: true }));
 // Connect Database
 connectDB().then(() => {
   seedUsersIfNeeded();
+  // Start automatic backups (every 5 days)
+  const startAutoBackupScheduler = require("./utils/autoBackup");
+  startAutoBackupScheduler();
 });
 
 // Seed Core Team Members
