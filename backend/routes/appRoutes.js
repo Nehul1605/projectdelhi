@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const VolunteerApp = require("../models/VolunteerApp");
+const Task = require("../models/Task");
 const Subscriber = require("../models/Subscriber");
 const GeneralVolunteer = require("../models/GeneralVolunteer");
 const Donation = require("../models/Donation");
@@ -25,6 +26,17 @@ router.post("/volunteer-apps", async (req, res) => {
     const email = (req.body.email || "").toLowerCase().trim();
     const taskId = req.body.taskId;
 
+    // Check if the user is restricted due to 3 or more absences
+    const absentCount = await Task.countDocuments({
+      "volunteers.email": email,
+      "volunteers.isAbsent": true
+    });
+    if (absentCount >= 3) {
+      return res.status(403).json({
+        error: "You are restricted from volunteering as you have been marked absent for 3 or more events. Please mail us at hello@projectdelhi.org for further information or clarification."
+      });
+    }
+
     // 1. Check if they have already submitted a pending/processed application
     const existingApp = await VolunteerApp.findOne({
       taskId,
@@ -39,7 +51,6 @@ router.post("/volunteer-apps", async (req, res) => {
     }
 
     // 2. Check if they are already in the approved volunteers list of the task
-    const Task = require("../models/Task");
     const task = await Task.findOne({ id: taskId });
     if (task && task.volunteers.some(v => (v.email || "").toLowerCase().trim() === email)) {
       return res.status(400).json({ error: "You are already registered as a volunteer for this event!" });
@@ -109,11 +120,19 @@ router.put("/volunteer-apps/:id/status", async (req, res) => {
 
       await appRecord.save();
 
-      const Task = require("../models/Task");
       const task = await Task.findOne({ id: appRecord.taskId });
       const taskTitle = task ? task.title : "Community Initiative";
 
       if (status === "approved" && task) {
+        // Double check absences
+        const absentCount = await Task.countDocuments({
+          "volunteers.email": appRecord.email,
+          "volunteers.isAbsent": true
+        });
+        if (absentCount >= 3) {
+          return res.status(400).json({ error: "Cannot approve: This user has been marked absent for 3 or more events and is restricted from volunteering." });
+        }
+
         if (!task.volunteers.some((v) => v.email === appRecord.email)) {
           task.volunteers.push({
             id: "vol-" + Date.now() + "-" + Math.random().toString(36).substr(2, 6),
@@ -165,7 +184,6 @@ router.post("/volunteer-apps/:id/conversation-updates", async (req, res) => {
       return res.status(404).json({ error: "Volunteer application not found" });
     }
 
-    const Task = require("../models/Task");
     const task = await Task.findOne({ id: appRecord.taskId });
     const taskTitle = task ? task.title : "Community Initiative";
 
@@ -512,7 +530,6 @@ router.delete("/volunteer-apps/:id", async (req, res) => {
       return res.status(404).json({ error: "Volunteer application not found" });
     }
 
-    const Task = require("../models/Task");
     const task = await Task.findOne({ id: appRecord.taskId });
     const taskTitle = task ? task.title : "Community Initiative";
 

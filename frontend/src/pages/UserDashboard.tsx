@@ -713,8 +713,8 @@ export default function UserDashboard({ addToast }: Props) {
                       )}
                     </div>
 
-                    {/* Volunteer Management Section (Only for approved/live campaigns) */}
-                    {proposal.status === "approved" && (
+                    {/* Volunteer Management Section (Only for approved/live/completed campaigns) */}
+                    {(proposal.status === "approved" || proposal.status === "completed") && (
                       (() => {
                         const proposalApps = myProposalsApps.filter((app) => app.taskId === proposal.id);
                         const pendingApps = proposalApps.filter((app) => app.status === "applied");
@@ -860,8 +860,8 @@ export default function UserDashboard({ addToast }: Props) {
                                                             marginLeft: 4, 
                                                             padding: "1px 3px", 
                                                             borderRadius: 3, 
-                                                            background: up.role === "ADMIN" ? "#ef4444" : up.role === "MODERATOR" ? "#3b82f6" : up.role === "PROPOSAL_OWNER" ? "#10b981" : "#e5e7eb", 
-                                                            color: ["ADMIN", "MODERATOR", "PROPOSAL_OWNER"].includes(up.role) ? "white" : "#374151", 
+                                                            background: up.role === "ADMIN" ? "#ef4444" : up.role === "MODERATOR" ? "#3b82f6" : up.role === "PROPOSAL_OWNER" ? "#10b981" : up.role === "VOLUNTEER" ? "#6366f1" : "#e5e7eb", 
+                                                            color: ["ADMIN", "MODERATOR", "PROPOSAL_OWNER", "VOLUNTEER"].includes(up.role) ? "white" : "#374151", 
                                                             fontSize: "0.6rem",
                                                             fontWeight: 600
                                                           }}>

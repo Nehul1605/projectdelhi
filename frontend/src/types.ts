@@ -106,6 +106,7 @@ export interface Volunteer {
   phone: string;
   joinedAt: string;
   message?: string;
+  isAbsent?: boolean;
 }
 
 export const CATEGORY_META: Record<

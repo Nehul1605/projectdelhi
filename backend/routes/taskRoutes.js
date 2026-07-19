@@ -602,4 +602,36 @@ router.put("/tasks/:id/admin-edit", async (req, res) => {
   }
 });
 
+// Toggle volunteer absent status
+router.put("/tasks/:id/volunteers/:volEmail/absent", async (req, res) => {
+  try {
+    const { id, volEmail } = req.params;
+    const { isAbsent, updatedBy } = req.body;
+    
+    const task = await Task.findOne({ id });
+    if (!task) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+    
+    const vol = task.volunteers.find(v => (v.email || "").toLowerCase().trim() === volEmail.toLowerCase().trim());
+    if (!vol) {
+      return res.status(404).json({ error: "Volunteer not found on this task" });
+    }
+    
+    vol.isAbsent = !!isAbsent;
+    await task.save();
+    
+    await logActivity({
+      userEmail: updatedBy || vol.email,
+      userName: vol.name,
+      action: "VOLUNTEER_ABSENT_TOGGLED",
+      details: `Volunteer "${vol.name}" (${vol.email}) marked as ${isAbsent ? "absent" : "present"} for task "${task.title}".`
+    });
+    
+    res.json({ success: true, volunteer: vol });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

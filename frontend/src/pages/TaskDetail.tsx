@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getTaskById, getTaskBySlug, slugify, addVolunteerApp, getCurrentUser, registerGeneralPartner, getFeaturedTasks, getApprovedTasks } from '../store';
+import { getTaskById, getTaskBySlug, slugify, addVolunteerApp, getCurrentUser, registerGeneralPartner, getFeaturedTasks, getApprovedTasks, toggleVolunteerAbsent } from '../store';
 import { CATEGORY_META } from '../types';
 import { RichTextDisplay } from '../components/RichTextEditor';
 import { Share2, Copy, X } from 'lucide-react';
@@ -142,7 +142,35 @@ export default function TaskDetail({ addToast }: Props) {
 
   const avatarColors = ['#8c2424', '#5d7c6b', '#10B981', '#8B5CF6', '#EC4899', '#F59E0B'];
 
-  const handleVolunteer = (e: React.FormEvent<HTMLFormElement>) => {
+  const isAuthorizedToManage = currentUser && (
+    currentUser.role === 'ADMIN' || 
+    currentUser.role === 'MODERATOR' || 
+    (task && currentUser.email.toLowerCase().trim() === (task.email || "").toLowerCase().trim())
+  );
+
+  const handleToggleAbsent = async (volEmail: string, currentAbsentStatus: boolean) => {
+    if (!task || !currentUser) return;
+    const nextAbsentStatus = !currentAbsentStatus;
+    const success = await toggleVolunteerAbsent(task.id, volEmail, nextAbsentStatus, currentUser.email);
+    if (success) {
+      addToast(`Volunteer marked as ${nextAbsentStatus ? 'absent' : 'present'} successfully.`, "success");
+      setTask((prevTask: any) => {
+        if (!prevTask) return prevTask;
+        return {
+          ...prevTask,
+          volunteers: prevTask.volunteers.map((v: any) => 
+            v.email.toLowerCase().trim() === volEmail.toLowerCase().trim()
+              ? { ...v, isAbsent: nextAbsentStatus }
+              : v
+          )
+        };
+      });
+    } else {
+      addToast("Failed to update volunteer attendance.", "error");
+    }
+  };
+
+  const handleVolunteer = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const name = (fd.get('name') as string).trim();
@@ -151,7 +179,7 @@ export default function TaskDetail({ addToast }: Props) {
     const message = (fd.get('message') as string).trim();
     const prevExperience = (fd.get('prevExperience') as string).trim();
 
-    addVolunteerApp({
+    const res = await addVolunteerApp({
       taskId: task.id,
       taskTitle: task.title,
       name,
@@ -161,8 +189,12 @@ export default function TaskDetail({ addToast }: Props) {
       prevExperience: prevExperience || ""
     });
 
-    addToast(`Thank you, ${name}! Your application has been sent for screening. 🎉`, 'success');
-    setShowModal(false);
+    if (res.success) {
+      addToast(`Thank you, ${name}! Your application has been sent for screening. 🎉`, 'success');
+      setShowModal(false);
+    } else {
+      addToast(res.error || "Failed to submit application. Please try again.", 'error');
+    }
   };
 
   const handlePartnerSubmit = async (e: React.FormEvent) => {
@@ -632,12 +664,46 @@ export default function TaskDetail({ addToast }: Props) {
                     {v.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="volunteer-info">
-                    <div className="name">{v.name}</div>
+                    <div className="name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {v.name}
+                      {v.isAbsent && (
+                        <span style={{ 
+                          fontSize: '0.7rem', 
+                          padding: '1px 6px', 
+                          borderRadius: '4px', 
+                          background: '#fee2e2', 
+                          color: '#ef4444', 
+                          fontWeight: 600 
+                        }}>
+                          Absent
+                        </span>
+                      )}
+                    </div>
                     {v.message && <div className="msg">"{v.message}"</div>}
                     <div className="time">
                       Joined {new Date(v.joinedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                     </div>
                   </div>
+                  {isAuthorizedToManage && (
+                    <button
+                      type="button"
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: '0.72rem',
+                        marginLeft: 'auto',
+                        border: '1px solid #ef4444',
+                        background: v.isAbsent ? '#ef4444' : 'transparent',
+                        color: v.isAbsent ? '#fff' : '#ef4444',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                        transition: 'all 0.2s ease-in-out'
+                      }}
+                      onClick={() => handleToggleAbsent(v.email, !!v.isAbsent)}
+                    >
+                      {v.isAbsent ? 'Marked Absent' : 'Mark Absent'}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

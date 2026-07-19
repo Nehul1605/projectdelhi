@@ -353,25 +353,35 @@ export function getVolunteerApps(): VolunteerApp[] {
   return cachedApps;
 }
 
-export function addVolunteerApp(
+export async function addVolunteerApp(
   app: Omit<VolunteerApp, "id" | "status" | "createdAt">,
-): VolunteerApp {
+): Promise<{ success: boolean; error?: string; data?: VolunteerApp }> {
   const newApp: VolunteerApp = {
     ...app,
     id: "vapp-" + Date.now() + "-" + Math.random().toString(36).substr(2, 6),
     status: "applied",
     createdAt: new Date().toISOString(),
   };
-  cachedApps.push(newApp);
 
-  // Sync with backend in background
-  fetch(`${API_BASE_URL}/volunteer-apps`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(newApp),
-  }).catch((err) => console.error("Failed to sync volunteer app to backend", err));
+  try {
+    const response = await fetch(`${API_BASE_URL}/volunteer-apps`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newApp),
+    });
 
-  return newApp;
+    if (!response.ok) {
+      const errData = await response.json();
+      return { success: false, error: errData.error || "Failed to submit application." };
+    }
+
+    const savedApp = await response.json();
+    cachedApps.push(savedApp);
+    return { success: true, data: savedApp };
+  } catch (err: any) {
+    console.error("Failed to sync volunteer app to backend", err);
+    return { success: false, error: "Connection error. Please try again later." };
+  }
 }
 
 export function updateVolunteerAppStatus(
@@ -454,6 +464,8 @@ export async function addConversationUpdate(
   const task = cachedTasks.find((t) => t.id === app.taskId);
   if (task && task.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim()) {
     role = "PROPOSAL_OWNER" as any;
+  } else if (app.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim()) {
+    role = "VOLUNTEER" as any;
   }
 
   const updateData = {
@@ -716,6 +728,37 @@ export function getStats() {
     totalPending: cachedTasks.filter((t) => t.status === "pending").length,
     eventsConducted: 3 + completed.length + deletedEventsConductedCount,
   };
+}
+
+export async function toggleVolunteerAbsent(
+  taskId: string,
+  email: string,
+  isAbsent: boolean,
+  updatedBy: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/volunteers/${email}/absent`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isAbsent, updatedBy }),
+    });
+    if (response.ok) {
+      const taskIdx = cachedTasks.findIndex((t) => t.id === taskId);
+      if (taskIdx !== -1) {
+        const vol = cachedTasks[taskIdx].volunteers.find(
+          (v) => (v.email || "").toLowerCase().trim() === email.toLowerCase().trim()
+        );
+        if (vol) {
+          vol.isAbsent = isAbsent;
+        }
+      }
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("Failed to toggle volunteer absent status:", error);
+    return false;
+  }
 }
 
 export async function subscribeEmail(email: string): Promise<{ success: boolean; message: string }> {

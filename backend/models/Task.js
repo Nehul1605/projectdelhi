@@ -6,7 +6,8 @@ const VolunteerSchema = new mongoose.Schema({
   email: { type: String, required: true },
   phone: { type: String, required: true },
   joinedAt: { type: String, required: true },
-  message: { type: String }
+  message: { type: String },
+  isAbsent: { type: Boolean, default: false }
 });
 
 const ChatMessageSchema = new mongoose.Schema({
